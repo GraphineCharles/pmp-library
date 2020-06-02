@@ -11,8 +11,12 @@
 #include <pmp/algorithms/SurfaceCurvature.h>
 #include <pmp/algorithms/SurfaceGeodesic.h>
 #include <pmp/algorithms/SurfaceHoleFilling.h>
+#include <pmp/algorithms/DifferentialGeometry.h>
 
 #include <imgui.h>
+
+#include "ClusteringExpOld.h"
+#include "ClusteringExp.h"
 
 MeshProcessingViewer::MeshProcessingViewer(const char* title, int width,
                                            int height)
@@ -23,6 +27,17 @@ MeshProcessingViewer::MeshProcessingViewer(const char* title, int width,
 
     // add help items
     add_help_item("O", "Flip mesh orientation", 5);
+}
+
+bool MeshProcessingViewer::load_mesh(const char* filename)
+{
+	bool res = pmp::MeshViewer::load_mesh(filename);
+	//ClusteringExpOld g(mesh_);
+	ClusteringExp g(mesh_);
+	g.process();
+	update_mesh();
+
+	return res;
 }
 
 void MeshProcessingViewer::keyboard(int key, int scancode, int action, int mods)

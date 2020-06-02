@@ -14,6 +14,8 @@ public:
     //! constructor
     MeshProcessingViewer(const char* title, int width, int height);
 
+	virtual bool load_mesh(const char* filename) override;
+
 protected:
     //! this function handles mouse button presses
     void mouse(int button, int action, int mods) override;

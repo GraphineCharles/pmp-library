@@ -72,7 +72,7 @@ else()
         add_executable(remeshing remeshing.cpp)
         target_link_libraries(remeshing pmp_vis)
 
-        add_executable(mpview mpview.cpp MeshProcessingViewer.cpp MeshProcessingViewer.h)
+        add_executable(mpview mpview.cpp MeshProcessingViewer.cpp MeshProcessingViewer.h ClusteringExpOld.h ClusteringExp.h SurfaceSimplificationWithAncestors.cpp SurfaceSimplificationWithAncestors.h PatchParameterization.cpp PatchParameterization.h lodepng/lodepng.cpp lodepng/lodepng.h FrameBuffer.h Texture2D.h)
         target_link_libraries(mpview pmp_vis)
     endif()
 
