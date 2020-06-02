@@ -38,8 +38,14 @@ public:
     //! Let two elements swap their storage place.
     virtual void swap(size_t i0, size_t i1) = 0;
 
+	//! Copy an element from one array to another
+	virtual void copy_to(size_t i0, BasePropertyArray *dest, size_t i1) = 0;
+
     //! Return a deep copy of self.
     virtual BasePropertyArray* clone() const = 0;
+
+	//! Create a new instance of the array. Works like an emtpy clone.
+	virtual BasePropertyArray* create_new() const = 0;
 
     //! Return the type_info of the property
     virtual const std::type_info& type() = 0;
@@ -81,12 +87,24 @@ public: // virtual interface of BasePropertyArray
         data_[i1] = d;
     }
 
+	virtual void copy_to(size_t i0, BasePropertyArray *dest, size_t i1)
+	{
+		PropertyArray<T> *typed = dynamic_cast<PropertyArray<T>*>(dest);
+		typed->data_[i1] = data_[i0];
+	}
+
     virtual BasePropertyArray* clone() const
     {
         PropertyArray<T>* p = new PropertyArray<T>(name_, value_);
         p->data_ = data_;
         return p;
     }
+
+	virtual BasePropertyArray* create_new() const
+	{
+		PropertyArray<T>* p = new PropertyArray<T>(name_, value_);
+		return p;
+	}
 
     virtual const std::type_info& type() { return typeid(T); }
 
@@ -208,6 +226,20 @@ public:
         return *this;
     }
 
+	void add_properties(const PropertyContainer &other)
+	{
+		for (size_t i = 0; i < other.parrays_.size(); ++i)
+		{
+			if (exists(other.parrays_[i]->name()))
+			{
+				continue;
+			}
+			BasePropertyArray *newarr = other.parrays_[i]->create_new();
+			newarr->resize(size_);
+			parrays_.push_back(newarr);
+		}
+	}
+
     // returns the current size of the property arrays
     size_t size() const { return size_; }
 
@@ -265,6 +297,16 @@ public:
                     dynamic_cast<PropertyArray<T>*>(parrays_[i]));
         return Property<T>();
     }
+
+	// get a generic property array by it's name. returns null if it does not exist.
+	// this can be used do do runtime type-agnostic operations
+	BasePropertyArray *get_base(const std::string& name) const
+	{
+		for (size_t i = 0; i < parrays_.size(); ++i)
+			if (parrays_[i]->name() == name)
+				return parrays_[i];
+		return nullptr;
+	}
 
     // returns a property if it exists, otherwise it creates it first.
     template <class T>

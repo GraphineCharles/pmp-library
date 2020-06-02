@@ -914,6 +914,13 @@ public:
     //! assign \p rhs to \p *this. does not copy custom properties.
     SurfaceMesh& assign(const SurfaceMesh& rhs);
 
+	//! add any properties from this mesh to the other. Will not touch existing properties.
+	//! any properties added will have the default values 
+	SurfaceMesh& add_properties(const SurfaceMesh& rhs);
+
+	//! returns true if the property name is reserved for internal use by the SurfaceMesh class
+	bool is_reserved_property(const std::string &name);
+
     //!@}
     //! \name File IO
     //!@{
@@ -1276,6 +1283,13 @@ public:
         return VertexProperty<T>(vprops_.get<T>(name));
     }
 
+	//! get the vertex property named \p name of type \p T. returns
+	//! null if the property does not exist.
+	BasePropertyArray *get_vertex_property_base(const std::string& name) const
+	{
+		return vprops_.get_base(name);
+	}
+
     //! if a vertex property of type \p T with name \p name exists, it is
     //! returned. otherwise this property is added (with default value \c
     //! t)
@@ -1328,14 +1342,28 @@ public:
         return HalfedgeProperty<T>(hprops_.get<T>(name));
     }
 
+	//! get the halfedge property named \p name of type \p T. returns
+	//! null if the property does not exist.
+	BasePropertyArray *get_halfedge_property_base(const std::string& name) const
+	{
+		return hprops_.get_base(name);
+	}
+
     //! get the edge property named \p name of type \p T. returns an
-    //! invalid VertexProperty if the property does not exist or if the
+    //! invalid EdgeProperty if the property does not exist or if the
     //! type does not match.
     template <class T>
     EdgeProperty<T> get_edge_property(const std::string& name) const
     {
         return EdgeProperty<T>(eprops_.get<T>(name));
     }
+
+	//! get the edge property named \p name of type \p T. returns
+	//! null if the property does not exist.
+	BasePropertyArray *get_edge_property_base(const std::string& name) const
+	{
+		return eprops_.get_base(name);
+	}
 
     //! if a halfedge property of type \p T with name \p name exists, it is
     //! returned.  otherwise this property is added (with default value \c
@@ -1441,6 +1469,14 @@ public:
     {
         return FaceProperty<T>(fprops_.get<T>(name));
     }
+
+	//! get the face property named \p name of type \p T. returns an invalid
+	//! VertexProperty if the property does not exist or if the type does not
+	//! match.
+	BasePropertyArray *get_face_property_base(const std::string& name) const
+	{
+		return fprops_.get_base(name);
+	}
 
     //! if a face property of type \p T with name \p name exists, it is
     //! returned.  otherwise this property is added (with default value \p t)

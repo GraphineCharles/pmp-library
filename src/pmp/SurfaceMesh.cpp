@@ -113,6 +113,27 @@ SurfaceMesh& SurfaceMesh::assign(const SurfaceMesh& rhs)
     return *this;
 }
 
+SurfaceMesh& SurfaceMesh::add_properties(const SurfaceMesh& rhs)
+{
+	vprops_.add_properties(rhs.vprops_);
+	hprops_.add_properties(rhs.hprops_);
+	eprops_.add_properties(rhs.eprops_);
+	fprops_.add_properties(rhs.fprops_);
+
+	return *this;
+}
+
+bool SurfaceMesh::is_reserved_property(const std::string &name)
+{
+	return (name == "v:point")||
+		(name == "v:connectivity") ||
+		(name == "h:connectivity") ||
+		(name == "f:connectivity") ||
+		(name == "v:deleted") ||
+		(name == "e:deleted") ||
+		(name == "f:deleted");
+}
+
 bool SurfaceMesh::read(const std::string& filename, const IOFlags& flags)
 {
     SurfaceMeshIO reader(filename, flags);
