@@ -144,6 +144,8 @@ private:
     GLuint tex_coord_buffer_;
     GLuint edge_buffer_;
     GLuint feature_buffer_;
+	GLuint color_buffer_;
+	GLuint bake_buffer_;
 
     //! buffer sizes
     GLsizei n_vertices_;
@@ -151,10 +153,12 @@ private:
     GLsizei n_triangles_;
     GLsizei n_features_;
     bool have_texcoords_;
+	bool have_colors_;
 
     //! shaders
     Shader phong_shader_;
     Shader matcap_shader_;
+	Shader bake_shader_;
 
     //! material properties
     vec3 front_color_, back_color_;

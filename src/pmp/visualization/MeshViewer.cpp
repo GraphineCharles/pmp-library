@@ -20,6 +20,7 @@ MeshViewer::MeshViewer(const char* title, int width, int height, bool showgui)
     add_draw_mode("Hidden Line");
     add_draw_mode("Smooth Shading");
     add_draw_mode("Texture");
+	add_draw_mode("Bake");
     set_draw_mode("Smooth Shading");
 
     crease_angle_ = 180.0;

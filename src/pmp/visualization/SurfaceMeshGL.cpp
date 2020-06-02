@@ -7,6 +7,7 @@
 
 #include "pmp/visualization/PhongShader.h"
 #include "pmp/visualization/MatCapShader.h"
+#include "pmp/visualization/BakeShader.h"
 #include "pmp/visualization/ColdWarmTexture.h"
 #include "pmp/algorithms/SurfaceNormals.h"
 
@@ -21,6 +22,8 @@ SurfaceMeshGL::SurfaceMeshGL()
     tex_coord_buffer_ = 0;
     edge_buffer_ = 0;
     feature_buffer_ = 0;
+	bake_buffer_ = 0;
+	color_buffer_ = 0;
 
     // initialize buffer sizes
     n_vertices_ = 0;
@@ -238,6 +241,8 @@ void SurfaceMeshGL::update_opengl_buffers()
         glGenBuffers(1, &tex_coord_buffer_);
         glGenBuffers(1, &edge_buffer_);
         glGenBuffers(1, &feature_buffer_);
+		glGenBuffers(1, &color_buffer_);
+		glGenBuffers(1, &bake_buffer_);
     }
 
     // activate VAO
@@ -247,6 +252,8 @@ void SurfaceMeshGL::update_opengl_buffers()
     auto vpos = get_vertex_property<Point>("v:point");
     auto vtex = get_vertex_property<TexCoord>("v:tex");
     auto htex = get_halfedge_property<TexCoord>("h:tex");
+	auto fcolor = get_face_property<Color>("f:color");
+	auto vbake = get_vertex_property<Vector4>("v:bake");
 
     // index array for remapping vertex indices during duplication
     auto vertex_indices = add_vertex_property<size_t>("v:index");
@@ -257,6 +264,8 @@ void SurfaceMeshGL::update_opengl_buffers()
     std::vector<vec3> normalArray;
     std::vector<vec2> texArray;
     std::vector<ivec3> triangles;
+	std::vector<vec3> colorArray;
+	std::vector<vec4> bakeArray;
 
     // we have a mesh: fill arrays by looping over faces
     if (n_faces())
@@ -266,6 +275,10 @@ void SurfaceMeshGL::update_opengl_buffers()
         normalArray.reserve(3 * n_faces());
         if (htex || vtex)
             texArray.reserve(3 * n_faces());
+		if (fcolor)
+			colorArray.reserve(3 * n_faces());
+		if (vbake)
+			bakeArray.reserve(3 * n_faces());
 
         // precompute normals for easy cases
         FaceProperty<Normal> fnormals;
@@ -289,6 +302,8 @@ void SurfaceMeshGL::update_opengl_buffers()
         std::vector<vec3> cornerPositions;
         std::vector<vec3> cornerNormals;
         std::vector<vec2> cornerTexCoords;
+		std::vector<vec3> cornerColors;
+		std::vector<vec4> cornerBake;
 
         // convert from degrees to radians
         const Scalar creaseAngle = crease_angle_ / 180.0 * M_PI;
@@ -304,6 +319,8 @@ void SurfaceMeshGL::update_opengl_buffers()
             cornerPositions.clear();
             cornerNormals.clear();
             cornerTexCoords.clear();
+			cornerColors.clear();
+			cornerBake.clear();
             Vertex v;
             Normal n;
 
@@ -313,6 +330,15 @@ void SurfaceMeshGL::update_opengl_buffers()
                 cornerHalfedges.push_back(h);
                 cornerVertices.push_back(v);
                 cornerPositions.push_back((vec3)vpos[v]);
+
+				if (fcolor)
+				{
+					cornerColors.push_back(fcolor[f]);
+				}
+				else
+				{
+					cornerColors.push_back(vec3(1.0f, 1.0f, 1.0f));
+				}
 
                 if (crease_angle_ < 1)
                 {
@@ -337,6 +363,15 @@ void SurfaceMeshGL::update_opengl_buffers()
                 {
                     cornerTexCoords.push_back((vec2)vtex[v]);
                 }
+
+				if (vbake)
+				{
+					cornerBake.push_back((vec4)vbake[v]);
+				}
+				else
+				{
+					cornerBake.push_back(vec4(1.0f, 0.0f, 1.0f, 1.0f));
+				}
             }
             assert(cornerVertices.size() >= 3);
 
@@ -355,13 +390,21 @@ void SurfaceMeshGL::update_opengl_buffers()
                 normalArray.push_back(cornerNormals[i0]);
                 normalArray.push_back(cornerNormals[i1]);
                 normalArray.push_back(cornerNormals[i2]);
-
+				
                 if (htex || vtex)
                 {
                     texArray.push_back(cornerTexCoords[i0]);
                     texArray.push_back(cornerTexCoords[i1]);
                     texArray.push_back(cornerTexCoords[i2]);
                 }
+
+				colorArray.push_back(cornerColors[i0]);
+				colorArray.push_back(cornerColors[i1]);
+				colorArray.push_back(cornerColors[i2]);
+
+				bakeArray.push_back(cornerBake[i0]);
+				bakeArray.push_back(cornerBake[i1]);
+				bakeArray.push_back(cornerBake[i2]);
 
                 vertex_indices[cornerVertices[i0]] = vidx++;
                 vertex_indices[cornerVertices[i1]] = vidx++;
@@ -431,6 +474,30 @@ void SurfaceMeshGL::update_opengl_buffers()
     }
     else
         have_texcoords_ = false;
+
+	// upload colors
+	if (!colorArray.empty())
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
+		glBufferData(GL_ARRAY_BUFFER, colorArray.size() * 3 * sizeof(float),
+			colorArray.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+		glEnableVertexAttribArray(3);
+		have_colors_ = true;
+	}
+	else
+		have_colors_ = false;
+
+
+	// upload colors
+	if (!bakeArray.empty())
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, bake_buffer_);
+		glBufferData(GL_ARRAY_BUFFER, bakeArray.size() * 4 * sizeof(float),
+			bakeArray.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
+		glEnableVertexAttribArray(4);
+	}
 
     // edge indices
     if (n_edges())
@@ -505,6 +572,13 @@ void SurfaceMeshGL::draw(const mat4& projection_matrix,
         if (!matcap_shader_.source(matcap_vshader, matcap_fshader))
             exit(1);
     }
+
+	// load shader?
+	if (!bake_shader_.is_valid())
+	{
+		if (!bake_shader_.source(bake_vshader, bake_fshader))
+			exit(1);
+	}
 
     // we need some texture, otherwise WebGL complains
     if (!texture_)
@@ -633,14 +707,39 @@ void SurfaceMeshGL::draw(const mat4& projection_matrix,
         }
     }
 
+	else if (draw_mode == "Bake")
+	{
+		if (n_faces())
+		{
+			bake_shader_.use();
+			bake_shader_.set_uniform("modelview_projection_matrix",
+				mvp_matrix);
+			bake_shader_.set_uniform("scale", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+			//bake_shader_.set_uniform("normal_matrix", n_matrix);
+			//bake_shader_.set_uniform("alpha", alpha_);
+			glBindTexture(GL_TEXTURE_2D, texture_);
+			glDrawArrays(GL_TRIANGLES, 0, n_vertices_);
+
+			// overlay edges
+			glDepthFunc(GL_ALWAYS);
+			glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, feature_buffer_);
+			glDrawElements(GL_LINES, n_features_, GL_UNSIGNED_INT, nullptr);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glDepthFunc(GL_LESS);
+		}
+	}
+
+
     // draw feature edges
     if (n_features_)
     {
-        phong_shader_.set_uniform("front_color", vec3(0, 1, 0));
-        phong_shader_.set_uniform("back_color", vec3(0, 1, 0));
-        phong_shader_.set_uniform("use_lighting", false);
+        phong_shader_.set_uniform("front_color", vec3(0, 0, 0));
+        phong_shader_.set_uniform("back_color", vec3(1, 1, 1));
+        phong_shader_.set_uniform("use_lighting", true);
         glDepthRange(0.0, 1.0);
         glDepthFunc(GL_LEQUAL);
+		glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, feature_buffer_);
         glDrawElements(GL_LINES, n_features_, GL_UNSIGNED_INT, nullptr);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
