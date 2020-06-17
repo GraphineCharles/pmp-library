@@ -95,10 +95,25 @@ bool MeshProcessingViewer::load_mesh(const char* filename)
 	job.bake = true;
 	job.cluster = true;
 	job.method = ClusteringExp::ClusterMethod::ElCheapo;
-#if 1
+#if 0
 	job.name = "quixel";
 	job.fileName = "G:\\Downloads\\Stone_Carved_tjtpfb2fa_8K_3d_ms\\tjtpfb2fa_High.obj";
 	job.textureFileName = "G:\\Downloads\\Stone_Carved_tjtpfb2fa_8K_3d_ms\\tjtpfb2fa_8K_Albedo.png";
+#endif
+#if 0
+	job.name = "moss_ground";
+	job.fileName = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_High.obj";
+	job.textureFileName = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_8K_Albedo.png";
+#endif
+#if 0
+	job.name = "steps";
+	job.fileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_High.obj";
+	job.textureFileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_8K_Albedo.png";
+#endif
+#if 1
+	job.name = "stone_castle";
+	job.fileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_High.obj";
+	job.textureFileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_8K_Albedo.png";
 #endif
 #if 0
 	job.name = "sphere_low";
