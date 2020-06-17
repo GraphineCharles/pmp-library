@@ -171,11 +171,24 @@ public:
 			output_t.Initialize(outputSize*textureResolution, outputSize*textureResolution, 32, nullptr);
 		}
 
+		// Bounding box texture x: mins, maxs, y: patchid
+		Texture2D output_bounds;
+		output_bounds.Initialize(2, outputSize*outputSize, 128, nullptr);
+
+		// Neighbour texture: x : neighbour, edge, y : patchid
+		Texture2D output_neighbours;
+		output_neighbours.Initialize(2, outputSize*outputSize, 128, nullptr);
+
 		int patchCount = 0;
 		for (auto sub : quadPatches)
 		{
 			sub->destX = (patchCount % outputSize) * resolution;
 			sub->destY = (patchCount / outputSize) * resolution;
+
+			// Save bounding box
+			auto bounds = sub->mesh.bounds();
+			*output_bounds.GetPixelPtr<Vector4>(0,patchCount) = Vector4(bounds.min(), 1.0f);
+			*output_bounds.GetPixelPtr<Vector4>(1, patchCount) = Vector4(bounds.max(), 1.0f);
 
 			MeshHelpers::BackupPositions(sub->mesh);
 			
@@ -199,21 +212,33 @@ public:
 			patchCount++;
 		}
 		
+		// Stitch neighbour patches up so the border pixel values match exactly
+		// Also fill the neighbour info texture
 		for (int i=0;i<quadPatches.size();i++)
 		{
 			auto sub = quadPatches[i];
 			int edgeIndex=0;
+			Vector4 neighbourIds;
+			Vector4 neighbourEdges;
+
 			for (auto edge : sub->edges)
 			{
-				//Invalid or
-				//Already set up by other neighbour
-				if (edge.neighbour < 0 || edge.neighbour < sub->patchID)
+				if (edgeIndex < 4)
 				{
-					edgeIndex++;
-					continue; 
+					neighbourIds[edgeIndex] = -1;
 				}
 
+				//Invalid
+				if (edge.neighbour < 0)
+				{
+					edgeIndex++;
+					continue;
+				}
+
+				// Find the other patch, note paches are not nececarry sorted in the list or continuous
+				// so we have to search this instead of index.
 				PatchQuadrangulator::QuadrangularPatch* otherPatch = NULL;
+				int otherIndex;
 				for (auto other : quadPatches)
 				{
 					if (other->patchID == edge.neighbour)
@@ -221,6 +246,13 @@ public:
 						otherPatch = other;
 						break;
 					}
+					otherIndex++;
+				}
+
+				// The output uses contiguous patch indexes so translate this 
+				if (edgeIndex < 4)
+				{
+					neighbourIds[edgeIndex] = otherIndex;
 				}
 
 				if (otherPatch == nullptr)
@@ -230,6 +262,7 @@ public:
 					continue;
 				}
 
+				// Find the index of the edge on the other patch that points to this patch.
 				int otherEdgeIdx = -1;
 				for (int j = 0; j < otherPatch->edges.size(); j++)
 				{
@@ -240,12 +273,24 @@ public:
 					}
 				}
 
+				if (edgeIndex < 4)
+				{
+					neighbourEdges[edgeIndex] = otherEdgeIdx;
+				}
+
 				assert(otherPatch->edges[otherEdgeIdx].neighbour == sub->patchID);
 
 				if (otherEdgeIdx < 0)
 				{
 					edgeIndex++;
 					std::cout << "Could not determine neighbors edge for patch edge\n";
+					continue;
+				}
+
+				//Already stitched up by other neighbour
+				if (edge.neighbour < 0 || edge.neighbour < sub->patchID)
+				{
+					edgeIndex++;
 					continue;
 				}
 
@@ -284,6 +329,9 @@ public:
 
 				edgeIndex++;
 			}
+
+			*output_neighbours.GetPixelPtr<Vector4>(0, patchCount) = neighbourIds;
+			*output_neighbours.GetPixelPtr<Vector4>(1, patchCount) = neighbourEdges;
 		}
 
 		sprintf(namebuff, "%s_out_p.exr", namePrefix);
@@ -300,6 +348,21 @@ public:
 			output_t.Save(namebuff, false);
 			std::cout << "Saved bake: " << namebuff << std::endl;
 		}
+
+		sprintf(namebuff, "%s_out_bounds.exr", namePrefix);
+		output_bounds.Save(namebuff, false);
+		std::cout << "Saved bake: " << namebuff << std::endl;
+
+		sprintf(namebuff, "%s_out_neighbours.exr", namePrefix);
+		output_neighbours.Save(namebuff, false);
+		std::cout << "Saved bake: " << namebuff << std::endl;
+
+		sprintf(namebuff, "%s_out_bias_scale.txt", namePrefix);
+		FILE *f = fopen(namebuff, "w");
+		Point delta = normalizationBox.max() - normalizationBox.min();
+		fprintf(f, "%f %f %f %f %f %f", normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2], delta[0], delta[1], delta[2]);
+		fclose(f);
+		std::cout << "Saved scales: " << namebuff << std::endl;
 	}
 
 	static void BakePatches(std::vector<SurfaceMesh> &patches, Texture2D *albeido, const BoundingBox &normalizationBox)

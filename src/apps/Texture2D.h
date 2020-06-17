@@ -259,4 +259,12 @@ public:
 
 		delete[] temp;
 	}
+
+	template<class PixelType> PixelType*GetPixelPtr(int x, int y)
+	{
+		assert(sizeof(PixelType) == bpp / 8);
+		assert(x >= 0 && x < width);
+		assert(y >= 0 && y < height);
+		return ((PixelType *)image) + x + y * width;
+	}
 };
