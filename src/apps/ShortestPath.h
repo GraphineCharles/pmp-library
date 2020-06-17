@@ -1,5 +1,6 @@
 #pragma once
 #include <queue>
+#include "MeshHelpers.h"
 
 class ShortestPath
 {
@@ -11,9 +12,13 @@ public:
 		previous = mesh.vertex_property<int>("shortest:previous");
 	}
 
-	void process(Vertex start, Vertex end, const std::unordered_set<int> &includedFaces, const std::unordered_set<int> &excludedEdges)
+	void process(Vertex start, Vertex end, const std::unordered_set<Face> &includedFaces, const std::unordered_set<Halfedge> &excludedEdges, const std::unordered_set<Vertex> &excludedVertices)
 	{
 		result.clear();
+
+		//start/end shouln't be excluded
+		assert(excludedVertices.find(start) == excludedVertices.end());
+		assert(excludedVertices.find(end) == excludedVertices.end());
 
 		for (Vertex v : mesh.vertices())
 		{
@@ -59,19 +64,27 @@ public:
 			for (Halfedge edge : mesh.halfedges(v))
 			{
 				// Face is not in our allowed list, skip this edge
-				if (includedFaces.find(mesh.face(edge).idx()) == includedFaces.end())
+				if ((includedFaces.size() != 0) && (includedFaces.find(mesh.face(edge)) == includedFaces.end()))
 				{
 					continue;
 				}
 				// Edge is in our exclude list, skip this edge
-				if (excludedEdges.find(edge.idx()) != excludedEdges.end())
+				if ((excludedEdges.size() != 0) && (excludedEdges.find(edge) != excludedEdges.end()))
 				{
 					continue;
 				}
 
+				Vertex to = mesh.to_vertex(edge);
+
+				// Vert is in our exclude list, skip this edge
+				if ((excludedVertices.size() != 0) && (excludedVertices.find(to) != excludedVertices.end()))
+				{
+					continue;
+				}
+
+
 				assert(mesh.from_vertex(edge) == v);
 				float alt = distance[v] + mesh.edge_length(mesh.edge(edge));
-				Vertex to = mesh.to_vertex(edge);
 				if (alt < distance[to])
 				{
 					distance[to] = alt;
@@ -87,8 +100,10 @@ public:
 			if (reachedGoal) break;
 		}
 
-		auto efeature = mesh.edge_property<bool>("e:feature");
+		//auto efeature = mesh.edge_property<bool>("e:feature");
 		Halfedge e = Halfedge(previous[end]);
+		// no path was found
+		if (!e.is_valid()) return;
 		assert(mesh.to_vertex(e) == end);
 		while (true)
 		{

@@ -2,76 +2,165 @@
 #include <pmp/algorithms/DifferentialGeometry.h>
 #include <pmp/algorithms/SurfaceNormals.h>
 #include <unordered_set>
+#include <string>
 #include "ShortestPath.h"
 #include "SurfaceSimplificationWithAncestors.h"
 #include "MeshHelpers.h"
 #include "PatchParameterization.h"
 #include "PatchBaker.h"
+#include "ElCheapoClust.h"
 
 class ClusteringExp
 {
 public:
 
-	ClusteringExp(SurfaceMesh& setMesh) : inputMesh(setMesh) {}
+	ClusteringExp(SurfaceMesh &setOutputMesh) : outputMesh(setOutputMesh){}
 
 
-	void process()
+	enum class ClusterMethod
 	{
-		simplified = inputMesh; //deep copy
+		Simplification,
+		ElCheapo
+	};
 
-#if 1
+	struct JobInfo
+	{
+		std::string name;
+		std::string fileName; // input mesh
+		std::string textureFileName; // albeido texture
+		bool cluster = false;
+		bool bake = true;
+		ClusterMethod method = ClusterMethod::ElCheapo;
+	};
+
+	void process(JobInfo &job)
+	{
+		/*bool cluster = false;
+		bool bake = true;
+		ClusterMethod method = ClusterMethod::ElCheapo;*/
+
+		std::string boundsName = job.name + "_out.bounds";
+		std::string polyPatchPrefix = job.name + "_patch";
+
 		// Edge collapse
-		SurfaceSimplificationWithAncestors ss(simplified);
-		ss.initialize();
-		ss.simplify(simplified.n_vertices()/1000);
-
-		FaceProperty<std::vector<Face>> original_faces = simplified.face_property<std::vector<Face>>("f:orignalFaces");
-		auto prop = inputMesh.add_face_property<Color>("f:color", Color(0, 0, 0));
-		auto prop_simp = simplified.add_face_property<Color>("f:color", Color(0, 0, 0));
-
-		srand(2202);
-		for (Face f : simplified.faces())
+		if (job.cluster)
 		{
-			vec3 color = vec3((rand() % 255) / 255.0f,
-				(rand() % 255) / 255.0f,
-				(rand() % 255) / 255.0f);
+			SurfaceMesh inputMesh;
+			inputMesh.read(job.fileName);
+			assert(inputMesh.n_faces());
+			assert(inputMesh.n_vertices());
+			SurfaceMesh simplified = inputMesh; //deep copy
 
-			for (Face of : original_faces[f])
+			std::vector<std::vector<Face>> patches;
+
+			if (job.method == ClusterMethod::Simplification)
 			{
-				prop[Face(of)] = color;
+
+				SurfaceSimplificationWithAncestors ss(simplified);
+				auto delta = simplified.bounds().max() - simplified.bounds().max();
+				//float aspectRatio = 0.0f;
+				//float edgeLength = std::max(std::max(delta[0], delta[1]), delta[2]) / 128.0f;
+				ss.initialize();
+				ss.simplify(simplified.n_vertices() / 1000);
+
+				FaceProperty<std::vector<Face>> original_faces = simplified.face_property<std::vector<Face>>("f:orignalFaces");
+
+
+				auto prop = inputMesh.add_face_property<Color>("f:color", Color(0, 0, 0));
+				auto prop_simp = simplified.add_face_property<Color>("f:color", Color(0, 0, 0));
+
+				srand(2202);
+				for (Face f : simplified.faces())
+				{
+					vec3 color = vec3((rand() % 255) / 255.0f,
+						(rand() % 255) / 255.0f,
+						(rand() % 255) / 255.0f);
+
+					for (Face of : original_faces[f])
+					{
+						prop[Face(of)] = color;
+					}
+
+					prop_simp[f] = color;
+				}
+
+				patches.resize(simplified.n_faces());
+				// first face
+				for (Face f : simplified.faces())
+				{
+					patches[f.idx()] = original_faces[f];
+				}
+
+			}
+			else if (job.method == ClusterMethod::ElCheapo)
+			{
+
+				ElCheapoClust clust(inputMesh);
+				clust.process(12);
+				patches = clust.clusters;
 			}
 
-			prop_simp[f] = color;
+			SurfaceNormals::compute_vertex_normals(inputMesh);
+			PatchHelpers::BakePatchIdsToFacesEdges(inputMesh, patches);
+			PatchHelpers::BakePatchIdsToColors(inputMesh, patches);
+
+			// For every halfedge save the id on the original mesh, This will then get passed along to the patches
+			// so they can find out where they came from originally
+			auto originalHalfedges = inputMesh.halfedge_property<Halfedge>("h:orig_id");
+			for (Halfedge e : inputMesh.halfedges())
+			{
+				originalHalfedges[e] = e;
+			}
+
+			std::vector<SurfaceMesh> meshPatches;
+			PatchHelpers::MakePatches(inputMesh, patches, meshPatches);
+
+			// Save and load for testing
+			PatchHelpers::SavePatches(meshPatches, polyPatchPrefix.c_str());
+
+			FILE *f = fopen(boundsName.c_str(),"wb");
+			auto bounds = inputMesh.bounds();
+			fwrite(&bounds, sizeof(bounds), 1, f);
+			fclose(f);
+
+			outputMesh = inputMesh;
 		}
 
-		SurfaceMesh sub;
-		std::vector<std::vector<Face>> patches;
-		patches.resize(simplified.n_faces());
-		// first face
-		for (Face f : simplified.faces())
+		if (job.bake)
 		{
-			patches[f.idx()] = original_faces[f];
+			FILE *f = fopen(boundsName.c_str(), "rb");
+			BoundingBox bounds;
+			fread(&bounds, sizeof(bounds), 1, f);
+			fclose(f);
+
+			std::vector<SurfaceMesh*> meshPatchesBis;
+			PatchHelpers::LoadPatches(polyPatchPrefix.c_str(), meshPatchesBis);
+
+			//		PatchBaker::BakePatches(meshPatches, inputMesh.bounds());
+			std::vector<PatchQuadrangulator::QuadrangularPatch*> quadPatches;
+			PatchBaker::QuadPatches(meshPatchesBis, quadPatches);
+
+			Texture2D tex;
+			if (job.textureFileName.size() && tex.Load(job.textureFileName.c_str()))
+			{
+				PatchBaker::BakePatches(quadPatches, &tex, bounds, job.name.c_str());
+			}
+			else
+			{
+				PatchBaker::BakePatches(quadPatches, NULL, bounds, job.name.c_str());
+			}
+
+
+			SurfaceMesh agg;
+			for (PatchQuadrangulator::QuadrangularPatch* quad : quadPatches)
+			{
+				MeshHelpers::AppendMesh(agg, quad->mesh);
+			}
+
+			outputMesh = agg;
 		}
 
-		//SurfaceNormals::compute_vertex_normals(inputMesh);
-		//MeshHelpers::NormalsToBake(inputMesh);
-		//MeshHelpers::ExtractMesh(inputMesh, toExtract, sub);
-		//SurfaceParameterizationBis sp(sub);
-		//sp.harmonic();
-		//MeshHelpers::TexCoordsToPositions(sub);
-		//MeshHelpers::BakeMesh(sub,"test.png");
-
-		PatchBaker::BakePatches(inputMesh, patches);
 		glViewport(0, 0, 512, 512);
-
-//		SurfaceParameterizationBis sp2(inputMesh);
-//		sp2.harmonic();
-//		MeshHelpers::PositionsToBakeNormalized(inputMesh, inputMesh.bounds());
-//		MeshHelpers::BakeMesh(inputMesh, "test2.png");
-
-		//inputMesh = sub;
-		//inputMesh = simplified;
-#endif
 
 #if 0
 		// Reverse loop
@@ -193,7 +282,5 @@ public:
 #endif
 	}
 
-private:
-    SurfaceMesh& inputMesh;
-	SurfaceMesh simplified;
+	SurfaceMesh &outputMesh;
 };

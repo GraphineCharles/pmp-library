@@ -49,7 +49,9 @@ public:
     Vertex pick_vertex(int x, int y);
 
 protected:
-    SurfaceMeshGL mesh_;   //!< the mesh
+    std::vector<SurfaceMeshGL> meshes_;   //!< the mesh
+	int currentMesh;
+
     std::string filename_; //!< the current file
     float crease_angle_;
 };

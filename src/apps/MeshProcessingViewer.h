@@ -28,5 +28,5 @@ protected:
 
 private:
     // smoother has to remember cotan weights, hence it global member
-    SurfaceSmoothing smoother_;
+    //SurfaceSmoothing smoother_;
 };

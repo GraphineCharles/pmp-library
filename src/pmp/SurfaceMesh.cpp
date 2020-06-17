@@ -319,7 +319,7 @@ Face SurfaceMesh::add_face(const std::vector<Vertex>& vertices)
     {
         if (!is_boundary(vertices[i]))
         {
-            std::cerr << "SurfaceMesh::add_face: complex vertex\n";
+           // std::cerr << "SurfaceMesh::add_face: complex vertex\n";
             return Face();
         }
 
@@ -328,7 +328,7 @@ Face SurfaceMesh::add_face(const std::vector<Vertex>& vertices)
 
         if (!isNew[i] && !is_boundary(halfedges[i]))
         {
-            std::cerr << "SurfaceMesh::add_face: complex edge\n";
+            //std::cerr << "SurfaceMesh::add_face: complex edge\n";
             return Face();
         }
     }
@@ -363,8 +363,7 @@ Face SurfaceMesh::add_face(const std::vector<Vertex>& vertices)
                 // ok ?
                 if (boundaryNext == innerNext)
                 {
-                    std::cerr
-                        << "SurfaceMeshT::add_face: patch re-linking failed\n";
+                    // std::cerr << "SurfaceMeshT::add_face: patch re-linking failed\n";
                     return Face();
                 }
 

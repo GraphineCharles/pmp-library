@@ -21,7 +21,7 @@ private:
 };
 
 Viewer::Viewer(const char* title, int width, int height)
-    : MeshViewer(title, width, height), smoother_(mesh_)
+    : MeshViewer(title, width, height), smoother_(meshes_[0])
 {
     crease_angle_ = 180.0;
 }
@@ -37,11 +37,11 @@ void Viewer::process_imgui()
     {
         if (ImGui::Button("Mean Curvature"))
         {
-            SurfaceCurvature analyzer(mesh_);
+            SurfaceCurvature analyzer(meshes_[0]);
             analyzer.analyze_tensor(1, true);
             analyzer.mean_curvature_to_texture_coordinates();
             update_mesh();
-            mesh_.use_cold_warm_texture();
+			meshes_[0].use_cold_warm_texture();
             set_draw_mode("Texture");
         }
     }
@@ -81,8 +81,8 @@ void Viewer::process_imgui()
         {
             // does the mesh have a boundary?
             bool has_boundary = false;
-            for (auto v : mesh_.vertices())
-                if (mesh_.is_boundary(v))
+            for (auto v : meshes_[0].vertices())
+                if (meshes_[0].is_boundary(v))
                     has_boundary = true;
 
             // only re-scale if we don't have a (fixed) boundary

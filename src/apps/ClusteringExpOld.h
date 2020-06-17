@@ -490,9 +490,9 @@ public:
 			Vertex to = mesh.to_vertex(Halfedge(currentEdge.edges[currentEdge.edges.size()-1]));
 
 			ShortestPath s(mesh);
-			s.process(from, to, includedFaces, excludedEdges);
+		/*	s.process(from, to, includedFaces, excludedEdges);
 			assert(mesh.from_vertex(s.result[0]) == from);
-			assert(mesh.to_vertex(s.result[s.result.size()-1]) == to);
+			assert(mesh.to_vertex(s.result[s.result.size()-1]) == to);*/
 
 			for (Halfedge e : s.result)
 			{

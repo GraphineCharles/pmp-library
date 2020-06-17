@@ -13,6 +13,8 @@
 #include "pmp/Properties.h"
 #include "pmp/BoundingBox.h"
 
+class PatchHelpers;
+
 namespace pmp {
 
 class SurfaceMeshIO;
@@ -1644,7 +1646,8 @@ public:
     //! Subdivide the edge \p e = (v0,v1) by splitting it into the two edge
     //! (v0,v) and (v,v1). Note that this function does not introduce any
     //! other edge or faces. It simply splits the edge. Returns halfedge
-    //! that points to \p p.  \sa insert_vertex(Edge, Point) \sa
+    //! that points to \p p (on the opposite face).  
+	//! h0 will point to v on the passed in face. \sa insert_vertex(Edge, Point) \sa
     //! insert_vertex(Edge, Vertex)
     Halfedge insert_vertex(Halfedge h0, Vertex v);
 
@@ -1824,6 +1827,7 @@ private:
     //! \name Allocate new elements
     //!@{
 
+public:
     //! allocate a new vertex, resize vertex properties accordingly.
     Vertex new_vertex()
     {
@@ -1877,6 +1881,7 @@ private:
         return Face(faces_size() - 1);
     }
 
+private:
     //!@}
     //! \name Helper functions
     //!@{
@@ -1899,6 +1904,7 @@ private:
     //!@{
 
     friend SurfaceMeshIO;
+	friend class ::PatchHelpers;
 
     // property containers for each entity type and object
     PropertyContainer oprops_;

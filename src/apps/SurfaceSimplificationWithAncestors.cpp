@@ -178,6 +178,8 @@ void SurfaceSimplificationWithAncestors::simplify(unsigned int n_vertices)
         enqueue_vertex(v);
     }
 
+	// Every edge will become a quad so the number of halfedges corresponds to the number of
+	// quad patches.
     while (nv > n_vertices && !queue_->empty())
     {
         // get 1st element

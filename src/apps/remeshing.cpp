@@ -40,7 +40,7 @@ void Viewer::process_imgui()
         ImGui::SameLine();
         if (ImGui::Button("Detect Features"))
         {
-            SurfaceFeatures sf(mesh_);
+            SurfaceFeatures sf(meshes_[0]);
             sf.clear();
             sf.detect_angle(feature_angle);
             update_mesh();
@@ -52,11 +52,11 @@ void Viewer::process_imgui()
         if (ImGui::Button("Uniform"))
         {
             Scalar l(0);
-            for (auto eit : mesh_.edges())
-                l += distance(mesh_.position(mesh_.vertex(eit, 0)),
-                              mesh_.position(mesh_.vertex(eit, 1)));
-            l /= (Scalar)mesh_.n_edges();
-            SurfaceRemeshing(mesh_).uniform_remeshing(l);
+            for (auto eit : meshes_[0].edges())
+                l += distance(meshes_[0].position(meshes_[0].vertex(eit, 0)),
+					meshes_[0].position(meshes_[0].vertex(eit, 1)));
+            l /= (Scalar)meshes_[0].n_edges();
+            SurfaceRemeshing(meshes_[0]).uniform_remeshing(l);
             update_mesh();
         }
 
@@ -64,8 +64,8 @@ void Viewer::process_imgui()
 
         if (ImGui::Button("Adaptive"))
         {
-            auto bb = mesh_.bounds().size();
-            SurfaceRemeshing(mesh_).adaptive_remeshing(
+            auto bb = meshes_[0].bounds().size();
+            SurfaceRemeshing(meshes_[0]).adaptive_remeshing(
                 0.0010 * bb,  // min length
                 0.0500 * bb,  // max length
                 0.0005 * bb); // approx. error

@@ -118,7 +118,7 @@ void main()
         rgb = color;
     }
 
-    if (use_texture) rgb *= texture(mytexture, v2f_tex).xyz;
+    if (use_texture) rgb *= vec3(v2f_tex, 0.0f);//texture(mytexture, v2f_tex).xyz;
     if (use_srgb)    rgb  = pow(clamp(rgb, 0.0, 1.0), vec3(0.45));
 
     f_color = vec4(rgb, alpha);

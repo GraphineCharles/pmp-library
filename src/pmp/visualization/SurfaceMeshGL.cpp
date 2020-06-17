@@ -45,6 +45,7 @@ SurfaceMeshGL::SurfaceMeshGL()
 
     // initialize texture
     texture_ = 0;
+	user_texture_ = 0;
     texture_mode_ = OtherTexture;
 }
 
@@ -715,9 +716,10 @@ void SurfaceMeshGL::draw(const mat4& projection_matrix,
 			bake_shader_.set_uniform("modelview_projection_matrix",
 				mvp_matrix);
 			bake_shader_.set_uniform("scale", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+			bake_shader_.set_uniform("bakeTex", false);
 			//bake_shader_.set_uniform("normal_matrix", n_matrix);
 			//bake_shader_.set_uniform("alpha", alpha_);
-			glBindTexture(GL_TEXTURE_2D, texture_);
+			glBindTexture(GL_TEXTURE_2D, user_texture_);
 			glDrawArrays(GL_TRIANGLES, 0, n_vertices_);
 
 			// overlay edges
@@ -727,7 +729,49 @@ void SurfaceMeshGL::draw(const mat4& projection_matrix,
 			glDrawElements(GL_LINES, n_features_, GL_UNSIGNED_INT, nullptr);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			glDepthFunc(GL_LESS);
+
+			// debug edges
+			/*bake_shader_.set_uniform("scale", vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			glDepthFunc(GL_ALWAYS);
+			glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, edge_buffer_);
+			glDrawElements(GL_LINES, n_edges_, GL_UNSIGNED_INT, nullptr);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glDepthFunc(GL_LESS);*/
 		}
+	}
+
+	else if (draw_mode == "BakeTex")
+	{
+	if (n_faces())
+	{
+		bake_shader_.use();
+		bake_shader_.set_uniform("modelview_projection_matrix",
+			mvp_matrix);
+		bake_shader_.set_uniform("scale", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+		bake_shader_.set_uniform("bakeTex", true);
+		//bake_shader_.set_uniform("normal_matrix", n_matrix);
+		//bake_shader_.set_uniform("alpha", alpha_);
+		glBindTexture(GL_TEXTURE_2D, user_texture_);
+		glDrawArrays(GL_TRIANGLES, 0, n_vertices_);
+
+		// overlay edges
+		glDepthFunc(GL_ALWAYS);
+		glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, feature_buffer_);
+		glDrawElements(GL_LINES, n_features_, GL_UNSIGNED_INT, nullptr);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glDepthFunc(GL_LESS);
+
+		// debug edges
+		/*bake_shader_.set_uniform("scale", vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		glDepthFunc(GL_ALWAYS);
+		glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, edge_buffer_);
+		glDrawElements(GL_LINES, n_edges_, GL_UNSIGNED_INT, nullptr);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glDepthFunc(GL_LESS);*/
+	}
 	}
 
 

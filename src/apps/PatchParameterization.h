@@ -18,7 +18,7 @@ public:
     PatchParameterization(SurfaceMesh& mesh);
 
     //! Compute discrete harmonic parameterization.
-    void harmonic(bool use_uniform_weights = false);
+    void harmonic(bool skip_boundary_setup = false, bool use_uniform_weights = false);
 
     //! Compute parameterization based on least squares conformal mapping.
     void lscm();

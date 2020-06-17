@@ -30,28 +30,28 @@ void Viewer::process_imgui()
     {
         if (ImGui::Button("Mean Curvature"))
         {
-            SurfaceCurvature analyzer(mesh_);
+            SurfaceCurvature analyzer(meshes_[0]);
             analyzer.analyze_tensor(1, true);
             analyzer.mean_curvature_to_texture_coordinates();
-            mesh_.use_cold_warm_texture();
+			meshes_[0].use_cold_warm_texture();
             update_mesh();
             set_draw_mode("Texture");
         }
         if (ImGui::Button("Gauss Curvature"))
         {
-            SurfaceCurvature analyzer(mesh_);
+            SurfaceCurvature analyzer(meshes_[0]);
             analyzer.analyze_tensor(1, true);
             analyzer.gauss_curvature_to_texture_coordinates();
-            mesh_.use_cold_warm_texture();
+			meshes_[0].use_cold_warm_texture();
             update_mesh();
             set_draw_mode("Texture");
         }
         if (ImGui::Button("Abs. Max. Curvature"))
         {
-            SurfaceCurvature analyzer(mesh_);
+            SurfaceCurvature analyzer(meshes_[0]);
             analyzer.analyze_tensor(1, true);
             analyzer.max_curvature_to_texture_coordinates();
-            mesh_.use_cold_warm_texture();
+			meshes_[0].use_cold_warm_texture();
             update_mesh();
             set_draw_mode("Texture");
         }

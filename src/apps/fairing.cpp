@@ -33,11 +33,11 @@ void Viewer::process_imgui()
     {
         if (ImGui::Button("Mean Curvature"))
         {
-            SurfaceCurvature analyzer(mesh_);
+            SurfaceCurvature analyzer(meshes_[0]);
             analyzer.analyze_tensor(1, true);
             analyzer.mean_curvature_to_texture_coordinates();
             update_mesh();
-            mesh_.use_cold_warm_texture();
+			meshes_[0].use_cold_warm_texture();
             set_draw_mode("Texture");
         }
     }
@@ -49,19 +49,19 @@ void Viewer::process_imgui()
     {
         if (ImGui::Button("Minimize Area"))
         {
-            SurfaceFairing fair(mesh_);
+            SurfaceFairing fair(meshes_[0]);
             fair.minimize_area();
             update_mesh();
         }
         if (ImGui::Button("Minimize Curvature"))
         {
-            SurfaceFairing fair(mesh_);
+            SurfaceFairing fair(meshes_[0]);
             fair.minimize_curvature();
             update_mesh();
         }
         if (ImGui::Button("Minimize Curvature Variation"))
         {
-            SurfaceFairing fair(mesh_);
+            SurfaceFairing fair(meshes_[0]);
             fair.fair(3);
             update_mesh();
         }

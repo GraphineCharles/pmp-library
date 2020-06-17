@@ -87,6 +87,8 @@ public:
                       GLint mag_filter = GL_LINEAR,
                       GLint wrap = GL_CLAMP_TO_EDGE);
 
+	void set_texture(GLuint texture) { user_texture_ = texture; }
+
     //! Load mat-cap texture from file. The mat-cap will be used
     //! whenever the drawing mode is "Texture". This also means
     //! that you cannot have texture and mat-cap at the same time.
@@ -168,6 +170,7 @@ private:
 
     //! 1D texture for scalar field rendering
     GLuint texture_;
+	GLuint user_texture_;
     enum TextureMode
     {
         ColdWarmTexture,

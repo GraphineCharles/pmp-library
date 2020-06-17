@@ -16,7 +16,7 @@ Scalar triangle_area(const Point& p0, const Point& p1, const Point& p2)
 
 Scalar triangle_area(const SurfaceMesh& mesh, Face f)
 {
-    assert(mesh.valence(f) == 3);
+    //assert(mesh.valence(f) == 3);
 
     auto fv = mesh.vertices(f);
     const auto& p0 = mesh.position(*fv);

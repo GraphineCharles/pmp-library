@@ -33,7 +33,7 @@ void main()
     v2f_tex = v_tex;
     v2f_color = v_color;
 	v2f_bake = v_bake;
-    gl_Position = modelview_projection_matrix * vec4(v_tex.x, v_tex.y, 0.0f, 1.0f);
+    gl_Position = modelview_projection_matrix * vec4(v_position.x, v_position.y, 0.0f, 1.0f);
 }
 )glsl";
 
@@ -51,8 +51,9 @@ in vec3 v2f_normal;
 in vec3 v2f_color;
 in vec2 v2f_tex;
 in vec4 v2f_bake;
-uniform sampler2D matcap;
+uniform sampler2D textureToBake;
 uniform vec4 scale;
+uniform bool bakeTex;
 out vec4 f_color;
 
 vec2 uv;
@@ -60,7 +61,17 @@ vec4 rgba;
 
 void main()
 {
-    f_color = v2f_bake * scale;
+	if ( bakeTex )
+	{
+		vec2 tex = v2f_tex;
+		tex.y = 1.0f - tex.y;
+		f_color =  vec4(v2f_tex,0.0f,1.0f);
+		f_color =  texture(textureToBake, tex) * scale;
+	}
+	else
+	{
+		f_color = v2f_bake * scale;
+	}
 	//f_color.xy = v2f_tex;
 	//f_color.z = 0.0f;	
 	//f_color.w = 1.0f;	

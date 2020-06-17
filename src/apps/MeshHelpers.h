@@ -53,10 +53,54 @@ namespace std {
 	};
 }
 
+#define myassert(pred) if (!(pred)) {	__debugbreak();	}
 
 class MeshHelpers
 {
 public:
+
+	static void triangulate_with_properties(SurfaceMesh &mesh, Face f)
+	{
+		// Split an arbitrary face into triangles by connecting each vertex of face
+		// f after its second to vertex v. Face f will remain valid (it will become
+		// one of the triangles). The halfedge handles of the new triangles will
+		// point to the old halfedges.
+
+		Halfedge baseH = mesh.halfedge(f);
+		Vertex startV = mesh.from_vertex(baseH);
+		Halfedge nextH = mesh.next_halfedge(baseH);
+
+		while (mesh.to_vertex(mesh.next_halfedge(nextH)) != startV)
+		{
+			Halfedge nextNextH(mesh.next_halfedge(nextH));
+
+			Face newF = mesh.new_face();
+			CopyFaceProperties(mesh, f, newF);
+
+			mesh.set_halfedge(newF, baseH);
+
+			Halfedge newH = mesh.new_edge(mesh.to_vertex(nextH), startV);
+			assert(mesh.to_vertex(nextH) == mesh.to_vertex(mesh.opposite_halfedge(newH)));
+			CopyHalfEdgeProperties(mesh, nextH, newH);
+
+			mesh.set_next_halfedge(baseH, nextH);
+			mesh.set_next_halfedge(nextH, newH);
+			mesh.set_next_halfedge(newH, baseH);
+
+			mesh.set_face(baseH, newF);
+			mesh.set_face(nextH, newF);
+			mesh.set_face(newH, newF);
+
+			baseH = mesh.opposite_halfedge(newH);
+			nextH = nextNextH;
+		}
+		mesh.set_halfedge(f, baseH); //the last face takes the handle baseH
+
+		mesh.set_next_halfedge(baseH, nextH);
+		mesh.set_next_halfedge(mesh.next_halfedge(nextH), baseH);
+
+		mesh.set_face(baseH, f);
+	}
 
 	static void AppendMesh(SurfaceMesh &appendTo, const SurfaceMesh &toAppend)
 	{
@@ -77,12 +121,19 @@ public:
 			{
 				verts.push_back(Vertex(vertexRemap[v]));
 			}
+			if ( verts.size() < 3) continue;
 			Face added = appendTo.add_face(verts);
-			faceRemap.insert({ f, added });
+			if (added.is_valid())
+			{
+			//	assert(added.is_valid());
+				faceRemap.insert({ f, added });
+			}
 		}
 
 		CopyVertexProperties(toAppend, appendTo, vertexRemap);
 		CopyFaceProperties(toAppend, appendTo, faceRemap);
+		CopyHalfEdgeProperties(toAppend, appendTo, faceRemap);
+		CopyEdgeProperties(toAppend, appendTo, faceRemap);
 	}
 
 	static void  ExtractMesh(const SurfaceMesh &source, const std::vector<Face> &sourceFaces, SurfaceMesh &dest)
@@ -91,9 +142,15 @@ public:
 		std::unordered_map<Face, Face> faceRemap;
 		dest.add_properties(source);
 
+		vertexRemap.reserve(sourceFaces.size() * 3);
+		faceRemap.reserve(sourceFaces.size());
+
+		std::vector<Vertex> verts;
+		verts.reserve(16);
+
 		for (Face f : sourceFaces)
 		{
-			std::vector<Vertex> verts;
+			verts.clear();
 			// Add new vertices if not existing yet
 			for (Vertex v : source.vertices(f))
 			{
@@ -104,12 +161,19 @@ public:
 				}
 				verts.push_back(vertexRemap[v.idx()]);
 			}
-			Face added = dest.add_face(verts);
-			faceRemap.insert({ f, added });
+
+			// Filter out bad faces
+			if (verts.size() > 2)
+			{
+				Face added = dest.add_face(verts);
+				faceRemap.insert({ f, added });
+			}
 		}
 
 		CopyVertexProperties(source, dest, vertexRemap);
 		CopyFaceProperties(source, dest, faceRemap);
+		CopyHalfEdgeProperties(source, dest, faceRemap);
+		CopyEdgeProperties(source, dest, faceRemap);
 	}
 
 	static void  CopyVertexProperties(const SurfaceMesh &source, SurfaceMesh &dest, std::unordered_map<Vertex, Vertex> vertexRemap)
@@ -129,6 +193,18 @@ public:
 		}
 	}
 
+	// SLOW! use CopyFaceProperties with a list if you need to to a lot of copying to make it faster
+	static void CopyFaceProperties(SurfaceMesh &source, Face a, Face b)
+	{
+		auto fprops = source.face_properties();
+		for (auto pname : fprops)
+		{
+			if (source.is_reserved_property(pname)) continue;
+			auto srcprop = source.get_face_property_base(pname);
+			srcprop->copy_to(a.idx(), srcprop, b.idx());
+		}
+	}
+
 	static void CopyFaceProperties(const SurfaceMesh &source, SurfaceMesh &dest, std::unordered_map<Face, Face> vertexRemap)
 	{
 		auto fprops = source.face_properties();
@@ -145,6 +221,97 @@ public:
 			}
 		}
 	}
+
+	static void CopyHalfEdgeProperties(SurfaceMesh &source, Halfedge src, Halfedge dst)
+	{
+		auto eprops = source.halfedge_properties();
+		for (auto pname : eprops)
+		{
+			if (source.is_reserved_property(pname)) continue;
+			auto srcprop = source.get_halfedge_property_base(pname);
+			srcprop->copy_to(src.idx(), srcprop, dst.idx());
+		}
+	}
+
+	static void CopyHalfEdgeProperties(const SurfaceMesh &source, SurfaceMesh &dest, std::unordered_map<Face, Face> faceRemap)
+	{
+		auto eprops = source.halfedge_properties();
+		for (auto pname : eprops)
+		{
+			if (dest.is_reserved_property(pname)) continue;
+
+			auto srcprop = source.get_halfedge_property_base(pname);
+			auto dstprop = dest.get_halfedge_property_base(pname);
+
+			for (auto mapped : faceRemap)
+			{
+				for (auto srcEdge = source.halfedges(mapped.first).begin(), dstEdge = dest.halfedges(mapped.second).begin();
+					srcEdge != source.halfedges(mapped.first).end() &&
+					dstEdge != dest.halfedges(mapped.second).end();
+					++srcEdge, ++dstEdge)
+				{
+					srcprop->copy_to( (*srcEdge).idx(), dstprop, (*dstEdge).idx());
+					Halfedge dstOpo = dest.opposite_halfedge(*dstEdge);
+					// Take special care to copy from boundary haledges also. There is no face for those to remap
+					// but the halfedges on the boundary to actualy exist
+					if (dest.is_boundary(dstOpo))
+					{
+						Halfedge srcOpo = source.opposite_halfedge(*srcEdge);
+						srcprop->copy_to(srcOpo.idx(), dstprop, dstOpo.idx());
+					}
+				}
+			}
+		}
+	}
+
+	static void CopyEdgeProperties(const SurfaceMesh &source, SurfaceMesh &dest, std::unordered_map<Face, Face> faceRemap)
+	{
+		// FIXME: This will copy everything twice for shared halfedges
+		auto eprops = source.edge_properties();
+		for (auto pname : eprops)
+		{
+			if (dest.is_reserved_property(pname)) continue;
+
+			auto srcprop = source.get_edge_property_base(pname);
+			auto dstprop = dest.get_edge_property_base(pname);
+
+			for (auto mapped : faceRemap)
+			{
+				for (auto srcEdge = source.halfedges(mapped.first).begin(), dstEdge = dest.halfedges(mapped.second).begin();
+					srcEdge != source.halfedges(mapped.first).end() &&
+					dstEdge != dest.halfedges(mapped.second).end();
+					++srcEdge, ++dstEdge)
+				{
+					Edge srcE = source.edge(*srcEdge);
+					Edge dstE = dest.edge(*dstEdge);
+					srcprop->copy_to(srcE.idx(), dstprop, dstE.idx());
+				}
+			}
+		}
+	}
+
+	static void BackupPositions(SurfaceMesh &source)
+	{
+		auto points = source.vertex_property<Point>("v:point");
+		auto backup = source.vertex_property<Point>("v:backup");
+
+		for (Vertex v : source.vertices())
+		{
+			backup[v] = points[v];
+		}
+	}
+
+	static void RestorePositions(SurfaceMesh &source)
+	{
+		auto points = source.vertex_property<Point>("v:point");
+		auto backup = source.vertex_property<Point>("v:backup");
+
+		for (Vertex v : source.vertices())
+		{
+			points[v] = backup[v];
+		}
+	}
+
 
 	static void TexCoordsToPositions(SurfaceMesh &source)
 	{
@@ -204,7 +371,7 @@ public:
 		}
 	}
 
-	static void BakeMesh(SurfaceMesh &source, int resolution, Texture2D &destination, int destX, int destY)
+	static void BakeMesh(SurfaceMesh &source, Texture2D *optionalSourceTexture, int resolution, Texture2D &destination, int destX, int destY)
 	{
 		std::cout << "Baking mesh " << std::endl;
 		FrameBuffer f;
@@ -220,7 +387,15 @@ public:
 
 		mat4 transform = translation_matrix(vec3(halfPixel, halfPixel, halfPixel)) * scaling_matrix(vec3(halfPixelInsetWidth, halfPixelInsetWidth, halfPixelInsetWidth));
 		transform = translation_matrix(vec3(-1.0f,-1.0f,-1.0f)) * scaling_matrix(vec3(2.0f, 2.0f, 2.0f)) * transform;
-		glCopy.draw(mat4::identity(), transform, "Bake");
+		if (optionalSourceTexture)
+		{
+			glCopy.set_texture(optionalSourceTexture->handle);
+			glCopy.draw(mat4::identity(), transform, "BakeTex");
+		}
+		else
+		{
+			glCopy.draw(mat4::identity(), transform, "Bake");
+		}
 		f.ReadPixels();
 
 
@@ -235,5 +410,78 @@ public:
 			dest += destSanlineSize;
 			src += scanlineSize;
 		}
+	}
+
+	static std::vector<SurfaceMesh> errorMeshes;
+
+	static void ErrorEdge(SurfaceMesh &mesh, Halfedge e, const std::string &message)
+	{
+		ErrorEdge(mesh, mesh.edge(e), message);
+	}
+
+	static void ErrorEdge(SurfaceMesh &mesh, Edge e, const std::string &message)
+	{
+		errorMeshes.push_back(SurfaceMesh());
+		SurfaceMesh &errorMesh = errorMeshes[errorMeshes.size() - 1];
+		errorMesh = mesh;
+		auto efeature = errorMesh.edge_property<bool>("e:feature");
+		efeature[e] = true;
+
+		Face f = errorMesh.face(errorMesh.halfedge(e, 0));
+		if (!f.is_valid())
+		{
+			f = errorMesh.face(errorMesh.halfedge(e, 1));
+		}
+
+		auto htex = errorMesh.halfedge_property<TexCoord>("h:tex");
+		errorMesh.remove_halfedge_property(htex);
+
+		auto faceColor = errorMesh.face_property<Color>("f:color");
+		for (Face f : errorMesh.faces())
+		{
+			faceColor[f] = Color(0.7f, 0.7f, 0.7f);
+		}
+
+		if (f.is_valid())
+		{
+			faceColor[f] = Color(1.0f, 0.0, 0.0f);
+		}
+
+	}
+
+	static void ErrorMesh(SurfaceMesh &mesh, const std::string &message)
+	{
+		errorMeshes.push_back(SurfaceMesh());
+		SurfaceMesh &errorMesh = errorMeshes[errorMeshes.size() - 1];
+		errorMesh = mesh;
+
+		auto htex = errorMesh.halfedge_property<TexCoord>("h:tex");
+		errorMesh.remove_halfedge_property(htex);
+
+		auto faceColor = errorMesh.face_property<Color>("f:color");
+		for (Face f : errorMesh.faces())
+		{
+			faceColor[f] = Color(0.7f, 0.7f, 0.7f);
+		}
+	}
+
+	static void ErrorMesh(SurfaceMesh &mesh, SurfaceMesh &mesh2, const std::string &message)
+	{
+		errorMeshes.push_back(SurfaceMesh());
+		SurfaceMesh &errorMesh = errorMeshes[errorMeshes.size() - 1];
+		errorMesh = mesh;
+
+	/*	auto faceColor = errorMesh.face_property<Color>("f:color");
+		for (Face f : errorMesh.faces())
+		{
+			faceColor[f] = Color(0.7f, 0.7f, 0.7f);
+		}*/
+
+		AppendMesh(errorMesh, mesh2);
+
+		auto htex = errorMesh.halfedge_property<TexCoord>("h:tex");
+		errorMesh.remove_halfedge_property(htex);
+	
+
 	}
 };

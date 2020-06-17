@@ -1,5 +1,6 @@
 #pragma once
 #include "lodepng/lodepng.h"
+#include "tinyexr.h"
 
 class Texture2D
 {
@@ -49,6 +50,12 @@ public:
 			gl_internal_format = GL_RGBA16;
 			gl_format = GL_RGBA;
 			gl_type = GL_UNSIGNED_SHORT;
+		}
+		else if (bpp == 128)
+		{
+			gl_internal_format = GL_RGBA32F;
+			gl_format = GL_RGBA;
+			gl_type = GL_FLOAT;
 		}
 		else
 		{
@@ -151,6 +158,19 @@ public:
 		else if (bpp == 64)
 		{
 			error = lodepng_encode_file(filepath.c_str(), image, width, height, LCT_RGBA, 16);
+		}
+		else if (bpp = 128)
+		{
+			const char *errorMsg;
+			error = SaveEXR((float *)image, width, height, 4, /*fp16*/0, filepath.c_str(), &errorMsg);
+			if (error != TINYEXR_SUCCESS)
+			{
+				if (errorMsg)
+				{
+					fprintf(stderr, "err: %s\n", errorMsg);
+					FreeEXRErrorMessage(errorMsg);
+				}
+			}
 		}
 
 		SwapPixels();

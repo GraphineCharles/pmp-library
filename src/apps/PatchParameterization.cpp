@@ -111,14 +111,17 @@ bool PatchParameterization::setup_boundary_constraints()
     return true;
 }
 
-void PatchParameterization::harmonic(bool use_uniform_weights)
+void PatchParameterization::harmonic(bool skip_boundary_setup, bool use_uniform_weights)
 {
-    // map boundary to circle
-    if (!setup_boundary_constraints())
-    {
-        std::cerr << "Could not perform setup of boundary constraints.\n";
-        return;
-    }
+	if (!skip_boundary_setup)
+	{
+		// map boundary to circle
+		if (!setup_boundary_constraints())
+		{
+			std::cerr << "Could not perform setup of boundary constraints.\n";
+			return;
+		}
+	}
 
     // get properties
     auto tex = mesh_.vertex_property<TexCoord>("v:tex");

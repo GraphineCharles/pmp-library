@@ -22,7 +22,7 @@ private:
 };
 
 Viewer::Viewer(const char* title, int width, int height)
-    : MeshViewer(title, width, height), param_(mesh_)
+    : MeshViewer(title, width, height), param_(meshes_[0])
 {
 }
 
@@ -31,7 +31,7 @@ bool Viewer::load_mesh(const char* filename)
     if (MeshViewer::load_mesh(filename))
     {
         // alloc tex coordinates
-        mesh_.vertex_property<TexCoord>("v:tex", TexCoord(0, 0));
+		meshes_[0].vertex_property<TexCoord>("v:tex", TexCoord(0, 0));
         update_mesh();
         return true;
     }
@@ -53,7 +53,7 @@ void Viewer::process_imgui()
         if (ImGui::Button("Discrete Harmonic Param"))
         {
             param_.harmonic();
-            mesh_.use_checkerboard_texture();
+			meshes_[0].use_checkerboard_texture();
             set_draw_mode("Texture");
             update_mesh();
         }
@@ -62,7 +62,7 @@ void Viewer::process_imgui()
         if (ImGui::Button("Least Squares Conformal Map"))
         {
             param_.lscm();
-            mesh_.use_checkerboard_texture();
+			meshes_[0].use_checkerboard_texture();
             set_draw_mode("Texture");
             update_mesh();
         }
@@ -73,7 +73,7 @@ void Viewer::draw(const std::string& draw_mode)
 {
     // normal mesh draw
     glViewport(0, 0, width(), height());
-    mesh_.draw(projection_matrix_, modelview_matrix_, draw_mode);
+	meshes_[0].draw(projection_matrix_, modelview_matrix_, draw_mode);
 
     // draw uv layout
     {
@@ -89,7 +89,7 @@ void Viewer::draw(const std::string& draw_mode)
         mat4 M = mat4::identity();
 
         // draw mesh once more
-        mesh_.draw(P, M, "Texture Layout");
+		meshes_[0].draw(P, M, "Texture Layout");
     }
 
     // reset viewport

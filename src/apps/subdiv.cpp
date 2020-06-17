@@ -49,14 +49,14 @@ void Viewer::process_imgui()
 
         if (ImGui::Button("Triangulate Mesh"))
         {
-            SurfaceTriangulation tesselator(mesh_);
+            SurfaceTriangulation tesselator(meshes_[0]);
             tesselator.triangulate();
             update_mesh();
         }
 
         if (ImGui::Button("Loop Subdivision"))
         {
-            SurfaceSubdivision(mesh_).loop();
+            SurfaceSubdivision(meshes_[0]).loop();
             update_mesh();
         }
 
@@ -68,7 +68,7 @@ void Viewer::process_imgui()
 
         if (ImGui::Button("Catmull-Clark Subdivision"))
         {
-            SurfaceSubdivision(mesh_).catmull_clark();
+            SurfaceSubdivision(meshes_[0]).catmull_clark();
             update_mesh();
         }
     }
