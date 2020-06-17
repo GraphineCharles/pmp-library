@@ -212,7 +212,7 @@ public:
 		}
 
 
-#if 0
+#if 1
 		auto visited = inputMesh.add_face_property<int>("f:visited");
 		assert(visited);
 
@@ -223,7 +223,19 @@ public:
 		// Initialize initial front around verts
 		for (int cluster=0;cluster<clusters.size(); cluster++)
 		{
-			Face seedFace = inputMesh.face(inputMesh.halfedge(clusterSeeds[cluster]));
+			Face seedFace;
+			for (Halfedge h : inputMesh.halfedges(clusterSeeds[cluster]))
+			{
+				seedFace = inputMesh.face(h);
+				if (seedFace.is_valid()) break;
+			}
+
+			if (!seedFace.is_valid())
+			{
+				std::cout << "Seedface has no adjacent faces. Probably isolated, skipping.\n";
+				continue;
+			}
+
 			work.push_back(seedFace);
 			MarkVertex(inputMesh, clusterSeeds[cluster]);
 			visited[seedFace] = cluster+1;// zero is unvisited

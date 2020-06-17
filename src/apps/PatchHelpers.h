@@ -63,7 +63,11 @@ public:
 		// mark every edge with the patch it's opposite belongs to
 		for (auto edge : inputMesh.halfedges())
 		{
-			edgeIDs[edge] = faceIDs[inputMesh.face(inputMesh.opposite_halfedge(edge))];
+			Face oposite = inputMesh.face(inputMesh.opposite_halfedge(edge));
+			if (oposite.is_valid())
+			{
+				edgeIDs[edge] = faceIDs[inputMesh.face(inputMesh.opposite_halfedge(edge))];
+			}
 		}
 	}
 
