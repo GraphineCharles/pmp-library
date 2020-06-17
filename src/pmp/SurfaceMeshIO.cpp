@@ -250,7 +250,7 @@ bool SurfaceMeshIO::read_obj(SurfaceMesh& mesh)
             }
 
             Face f = mesh.add_face(vertices);
-
+			if (!f.is_valid()) continue;
             // add texture coordinates
             if (with_tex_coord)
             {
