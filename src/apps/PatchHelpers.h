@@ -90,7 +90,7 @@ private:
 
 public:
 
-	static const int Version = 1;
+	static const int Version;
 
 	static bool WritePatch(const SurfaceMesh& mesh, const char *fileName)
 	{
@@ -297,3 +297,5 @@ public:
 		}
 	}
 };
+
+const int PatchHelpers::Version = 1;

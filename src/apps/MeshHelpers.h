@@ -53,7 +53,11 @@ namespace std {
 	};
 }
 
+#if _MSC_VER
 #define myassert(pred) if (!(pred)) {	__debugbreak();	}
+#else
+#define myassert(pred) if (!(pred)) {	__builtin_trap(); }
+#endif
 
 class MeshHelpers
 {
