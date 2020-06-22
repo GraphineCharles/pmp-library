@@ -184,7 +184,8 @@ public:
 		{
 			for (int edge : halfEdges)
 			{
-				walker(mesh, Halfedge(edge));
+				Halfedge halfedge(edge);
+				walker(mesh, halfedge);
 			}
 		}
 
