@@ -56,7 +56,7 @@ public:
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glReadPixels(0, 0, image.width, image.height, image.gl_format, image.gl_type, image.image);
-		image.VerticalFlipPixels();
+	//	image.VerticalFlipPixels();
 	}
 
 	unsigned int fbo;

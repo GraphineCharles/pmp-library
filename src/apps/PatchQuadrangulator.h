@@ -16,6 +16,7 @@ public:
 	struct PatchEdge
 	{
 		int neighbour;
+		int neighbourEdgeIndex; // edge number on the neighbour
 		Vertex center;
 		std::vector<Halfedge> edges; // half edge path on cluster A between the two clusters
 	};
@@ -33,8 +34,8 @@ public:
 		int originalPatchID; // id of the patch before quadrangulation
 		SurfaceMesh mesh;
 		std::vector<PatchEdge> edges;
-		int destX;
-		int destY;
+		int gridX;
+		int gridY;
 	};
 
 	static void GenerateBoundaryInfo(SurfaceMesh &patch, std::vector<PatchEdge> &strips)
@@ -1166,7 +1167,7 @@ public:
 					for (auto potentialNeighbour : quadPatches)
 					{
 						// Optimize: only scan patches that came from the original patch we're interested in
-						//if (potentialNeighbour->originalPatchID != originalNeighbourEdgePatchID) continue;
+						if (potentialNeighbour->originalPatchID != originalNeighbourEdgePatchID) continue;
 						if (potentialNeighbour == patch) continue;
 						
 						auto edgeIDsOnOriginalMeshNeigh = potentialNeighbour->mesh.get_halfedge_property<Halfedge>("h:orig_id");
@@ -1206,6 +1207,60 @@ public:
 			// now the neighbours are patched we can finally generate boundary info
 			GenerateBoundaryInfo(patch->mesh, patch->edges);
 			//assert(patch->edges.size() <= 4);
+		}
+
+		// Find the neighbour edge indexes
+		for (auto patch : quadPatches)
+		{
+			for (auto &edge : patch->edges)
+			{
+				//No neighbour nothing find here
+				if (edge.neighbour < 0)
+				{
+					edge.neighbourEdgeIndex = -1;
+					continue;
+				}
+
+				PatchQuadrangulator::QuadrangularPatch* otherPatch = nullptr;
+				for (auto p : quadPatches)
+				{
+					if (p->patchID == edge.neighbour)
+					{
+						otherPatch = p;
+						break;
+					}
+				}
+
+				if (otherPatch == nullptr)
+				{
+					std::cout << "Could not find neighbour edge. Neighbor data corrupt marking as no-neighbour.\n";
+					edge.neighbourEdgeIndex = -1;
+					edge.neighbour = -1;
+					continue;
+				}
+
+				// Find the index of the edge on the other patch that points to this patch.
+				int otherEdgeIdx = -1;
+				for (int j = 0; j < otherPatch->edges.size(); j++)
+				{
+					if (otherPatch->edges[j].neighbour == patch->patchID)
+					{
+						otherEdgeIdx = j;
+						break;
+					}
+				}
+
+				if (otherEdgeIdx < 0)
+				{
+					std::cout << "Could not find index of neighbour edge. Neighbor data corrupt marking as no-neighbour.\n";
+					edge.neighbourEdgeIndex = -1;
+					edge.neighbour = -1;
+				}
+				else
+				{
+					edge.neighbourEdgeIndex = otherEdgeIdx;
+				}
+			}
 		}
 	}
 
