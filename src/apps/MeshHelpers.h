@@ -159,7 +159,7 @@ public:
 					Vertex remapped = dest.add_vertex(source.position(v));
 					vertexRemap.insert({ v, remapped });
 				}
-				verts.push_back(vertexRemap[v.idx()]);
+				verts.push_back(vertexRemap[v]);
 			}
 
 			// Filter out bad faces
