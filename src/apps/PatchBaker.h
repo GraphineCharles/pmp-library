@@ -865,7 +865,7 @@ public:
 			{
 				"positions": "%s",
 				"normals": "%s",
-				"albeido": "%s",
+				"albedo": "%s",
 				"roughness": "%s",
 				"neighbours": "%s",
 				"patchBounds": "%s",
