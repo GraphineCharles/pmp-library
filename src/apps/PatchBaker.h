@@ -244,18 +244,74 @@ public:
 		int currentQuad = startQuad;
 		int currentEdge = startEdge;
 		int currentPixel = 0;
+
+		// Two cases a center vertex with an number of edges
+		//		q1	|  q2
+		//		  --*--
+		//       q3  \   q4
+		// We visit all the corners that touch this
+		//
+		// An edge of the mesh we visit all the corners we have to handle this specially since we may ot start at the edge
+		// so we first walk backwards to find an edge then forwards from that edge if found
+		//     q1 |  q2
+		//     ---*-----
+		//       empty space
+		//  
+
+		// walk backwards untill we reach start or an edge
+		// then walk forward from that edge until we reach that corner or an edge
+		while (true)
+		{
+			PatchQuadrangulator::QuadrangularPatch* q = quadPatches[currentQuad];
+
+			// Step to previous
+			int prevEdge = currentEdge - 1;
+			if (prevEdge < 0) prevEdge += quadPatches[currentQuad]->edges.size();
+
+			// Reached a border edge use this one as the start
+			if (q->edges[prevEdge].neighbour == -1)
+			{
+				break;
+			}
+
+			// Walk backwards to the next edge
+			currentQuad = q->edges[prevEdge].neighbour;
+			currentEdge = q->edges[prevEdge].neighbourEdgeIndex;
+
+			// Full circle or no neighbour -> break
+			if (currentQuad == startQuad)
+			{
+				if (currentEdge != startEdge)
+				{
+					std::cout << "Went around but not to the same edge :-(\n";
+				}
+				break;
+			}
+		}
+
+		if (currentQuad < 0)
+		{
+			std::cout << "VisitCorners: invalid start\n";
+		}
 		
 		while (true)
 		{
+			if (currentQuad < 0 || currentQuad >= quadPatches.size()) 
+			{
+				std::cout << "VisitCorners: patch index " << currentQuad << "\n";
+				return;
+			}
+
 			PatchQuadrangulator::QuadrangularPatch* q = quadPatches[currentQuad];
 			visit(q, currentEdge, currentPixel);
 
 			// Step to next
 			currentQuad = q->edges[currentEdge].neighbour;
-			currentEdge = (q->edges[currentEdge].neighbourEdgeIndex+1)%quadPatches[currentQuad]->edges.size();
 
-			// Full circle
-			if (currentQuad == startQuad) break;
+			// Full circle or no neighbour -> break
+			if (currentQuad == startQuad || currentQuad < 0) break;
+
+			currentEdge = (q->edges[currentEdge].neighbourEdgeIndex+1)%quadPatches[currentQuad]->edges.size();
 		}
 	}
 
@@ -596,11 +652,11 @@ public:
 					PixelType *a = (PixelType *)SampleEdge(image, sub, edgeIndex, resolution, p);
 					PixelType *b = (PixelType *)SampleEdge(image, otherPatch, otherEdgeIdx, resolution, otherP);
 					
-					*b = *a;
+					//*b = *a;
 
-					//PixelType average = LerpPixel(*a, *b, 0.5f);//(*a + *b) * 0.5f;
-					//*a = average;
-					//*b = average;
+					PixelType average = LerpPixel(*a, *b, 0.5f);//(*a + *b) * 0.5f;
+					*a = average;
+					*b = average;
 				}
 
 				Vector4 average(0);
@@ -631,6 +687,12 @@ public:
 		ReassignPatchIDs(quadPatches);
 
 		char namebuff[256];
+		char postionName[256];
+		char normalName[256];
+		char albeidoName[256];
+		char roughnessName[256];
+		char neighboursName[256];
+		char patchBoundsName[256];
 			   		 
 		int outputSize = (int)ceil(sqrt(quadPatches.size()));
 		int resolution = 128;
@@ -718,37 +780,44 @@ public:
 			*output_neighbours.GetPixelPtr<Vector4>(1, patchCount) = neighbourEdges;
 		}
 
-		sprintf(namebuff, "%s_out_p.exr", namePrefix);
-		output_p.Save(namebuff, false);
-		std::cout << "Saved bake: " << namebuff << std::endl;
+		sprintf(postionName, "%s_out_p.exr", namePrefix);
+		output_p.Save(postionName, false);
+		std::cout << "Saved bake: " << postionName << std::endl;
 
 		sprintf(namebuff, "%s_out_p", namePrefix);
 		MipPatches<Vector4>(quadPatches, resolution, output_p, namebuff, ".exr");
 
-		sprintf(namebuff, "%s_out_n.png", namePrefix);
-		output_n.Save(namebuff, false);
-		std::cout << "Saved bake: " << namebuff << std::endl;
+		sprintf(normalName, "%s_out_n.png", namePrefix);
+		output_n.Save(normalName, false);
+		std::cout << "Saved bake: " << normalName << std::endl;
 
 		sprintf(namebuff, "%s_out_n", namePrefix);
 		MipPatches<ShortPixel>(quadPatches, resolution, output_n, namebuff, ".png");
 
 		if (albeido)
 		{
-			sprintf(namebuff, "%s_out_t.png", namePrefix);
-			output_t.Save(namebuff, false);
-			std::cout << "Saved bake: " << namebuff << std::endl;
+			sprintf(albeidoName, "%s_out_t.png", namePrefix);
+			output_t.Save(albeidoName, false);
+			std::cout << "Saved bake: " << albeidoName << std::endl;
 
 			sprintf(namebuff, "%s_out_t", namePrefix);
 			MipPatches<BytePixel>(quadPatches, textureResolution, output_t, namebuff, ".png");
 		}
+		else
+		{
+			sprintf(albeidoName, "");
+		}
 
-		sprintf(namebuff, "%s_out_bounds.exr", namePrefix);
-		output_bounds.Save(namebuff, false);
-		std::cout << "Saved bake: " << namebuff << std::endl;
+		// TODO: Roughness
+		sprintf(roughnessName, "");
 
-		sprintf(namebuff, "%s_out_neighbours.exr", namePrefix);
-		output_neighbours.Save(namebuff, false);
-		std::cout << "Saved bake: " << namebuff << std::endl;
+		sprintf(patchBoundsName, "%s_out_bounds.exr", namePrefix);
+		output_bounds.Save(patchBoundsName, false);
+		std::cout << "Saved bake: " << patchBoundsName << std::endl;
+
+		sprintf(neighboursName, "%s_out_neighbours.exr", namePrefix);
+		output_neighbours.Save(neighboursName, false);
+		std::cout << "Saved bake: " << neighboursName << std::endl;
 
 		sprintf(namebuff, "%s_out_bias_scale.txt", namePrefix);
 		FILE *f = fopen(namebuff, "w");
@@ -756,6 +825,67 @@ public:
 		fprintf(f, "%f %f %f %f %f %f", normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2], delta[0], delta[1], delta[2]);
 		fclose(f);
 		std::cout << "Saved scales: " << namebuff << std::endl;
+
+		char jsonBuff[4096];
+
+		const char *jsonTemplate = R"(
+			{
+				"positions": "%s",
+				"normals": "%s",
+				"albeido": "%s",
+				"roughness": "%s",
+				"neighbours": "%s",
+				"patchBounds": "%s",
+				"scale": {
+					"x": %f,
+					"y": %f,
+					"z": %f
+				},
+				"bias": {
+					"x": %f,
+					"y": %f,
+					"z": %f
+				},
+				"numPatches": %i,
+				"gridWidth": %i,
+				"gridHeight": %i,
+				"gridSize": %i,
+				"boundsMin": {
+					"x": %f,
+					"y": %f,
+					"z": %f
+				},
+				"boundsMax": {
+					"x": %f,
+					"y": %f,
+					"z": %f
+				}
+			}
+		)";
+
+		sprintf(jsonBuff, jsonTemplate,
+			postionName,
+			normalName,
+			albeidoName,
+			roughnessName,
+			neighboursName,
+			patchBoundsName,
+			delta[0], delta[1], delta[2],
+			normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2],
+			quadPatches.size(),
+			outputSize,
+			outputSize,
+			resolution,
+			normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2],
+			normalizationBox.max()[0], normalizationBox.max()[1], normalizationBox.max()[2]
+		);
+
+		sprintf(namebuff, "%s.vmesh", namePrefix);
+		f = fopen(namebuff, "w");
+		fprintf(f, "%s", jsonBuff);
+		fclose(f);
+		std::cout << "Saved json: " << namebuff << std::endl;
+
 	}
 
 	static void BakePatches(std::vector<SurfaceMesh> &patches, Texture2D *albeido, const BoundingBox &normalizationBox)
