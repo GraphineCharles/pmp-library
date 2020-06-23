@@ -27,7 +27,8 @@ public:
 	{
 		std::string name;
 		std::string fileName; // input mesh
-		std::string textureFileName; // albeido texture
+		std::string diffuseAlbedo; // albedo texture
+		std::string roughnessMap;
 		bool cluster = false;
 		bool bake = true;
 		ClusterMethod method = ClusterMethod::ElCheapo;
@@ -147,14 +148,25 @@ public:
 			std::vector<PatchQuadrangulator::QuadrangularPatch*> quadPatches;
 			PatchBaker::QuadPatches(meshPatchesBis, quadPatches);
 
-			Texture2D tex;
-			if (job.textureFileName.size() && tex.Load(job.textureFileName.c_str()))
+			Texture2D diffuseAlbedoTex;
+			Texture2D roughnessTex;
+			bool hasDiffuse		= job.diffuseAlbedo.size() && diffuseAlbedoTex.Load(job.diffuseAlbedo.c_str());
+			bool hasRoughness	= job.roughnessMap.size() && roughnessTex.Load(job.roughnessMap.c_str());
+			if (hasDiffuse && hasRoughness)
 			{
-				PatchBaker::BakePatches(quadPatches, &tex, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, &roughnessTex, bounds, job.name.c_str());
+			}
+			else if (hasDiffuse)
+			{
+				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, nullptr, bounds, job.name.c_str());
+			}
+			else if (hasRoughness)
+			{
+				PatchBaker::BakePatches(quadPatches, nullptr, &roughnessTex, bounds, job.name.c_str());
 			}
 			else
 			{
-				PatchBaker::BakePatches(quadPatches, NULL, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, nullptr, nullptr, bounds, job.name.c_str());
 			}
 
 

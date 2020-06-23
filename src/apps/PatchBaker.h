@@ -256,7 +256,7 @@ public:
 		//     q1 |  q2
 		//     ---*-----
 		//       empty space
-		//  
+		//
 
 		// walk backwards untill we reach start or an edge
 		// then walk forward from that edge until we reach that corner or an edge
@@ -293,10 +293,10 @@ public:
 		{
 			std::cout << "VisitCorners: invalid start\n";
 		}
-		
+
 		while (true)
 		{
-			if (currentQuad < 0 || currentQuad >= quadPatches.size()) 
+			if (currentQuad < 0 || currentQuad >= quadPatches.size())
 			{
 				std::cout << "VisitCorners: patch index " << currentQuad << "\n";
 				return;
@@ -445,12 +445,12 @@ public:
 			x = std::max(0, std::min(x, patchSize - 1));
 			y = std::max(0, std::min(y, patchSize - 1));
 		}
-		
+
 		//The normal case: aka disappontingly simple
 		PixelType* base = (PixelType*)image.image;
 		return *(base + (x + patch->gridX*patchSize) + (y + patch->gridY*patchSize) * image.width);
 	}
-	
+
 	template <class PixelType> static void BlurPatch(std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches, int resolution, int patchIndex,Texture2D &image, Texture2D &out)
 	{
 		// Use http://dev.theomader.com/gaussian-kernel-calculator/
@@ -530,9 +530,9 @@ public:
 		}
 	}
 
-	template <class PixelType> static void MipPatches(std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches, int resolution, Texture2D &image, const char *namePrefix, const char *namePostfix)
+	template <class PixelType> static void MipPatches(std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches, int resolution, Texture2D& image, const char *namePrefix, const char *namePostfix)
 	{
-		Texture2D *prevMip = &image;
+		Texture2D* prevMip = &image;
 		for (int mipResolution = resolution / 2, mipCount = 1; mipResolution >= 4; mipResolution = mipResolution / 2, mipCount++)
 		{
 			int prevResolution = mipResolution * 2;
@@ -651,7 +651,7 @@ public:
 
 					PixelType *a = (PixelType *)SampleEdge(image, sub, edgeIndex, resolution, p);
 					PixelType *b = (PixelType *)SampleEdge(image, otherPatch, otherEdgeIdx, resolution, otherP);
-					
+
 					//*b = *a;
 
 					PixelType average = LerpPixel(*a, *b, 0.5f);//(*a + *b) * 0.5f;
@@ -675,38 +675,48 @@ public:
 					PixelType *pix = (PixelType *)SampleEdge(image, visitPatch, edge, resolution, pixel);
 					*pix = PixelType(average);
 				});
-		
+
 				edgeIndex++;
 			}
 		}
 
 	}
-	   
-	static void BakePatches(std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches, Texture2D *albeido,  BoundingBox &normalizationBox, const char *namePrefix)
+
+	static void BakePatches(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches,
+		Texture2D* diffuseAlbedo,
+		Texture2D* roughness,
+		BoundingBox &normalizationBox,
+		const char *namePrefix)
 	{
 		ReassignPatchIDs(quadPatches);
 
 		char namebuff[256];
 		char postionName[256];
 		char normalName[256];
-		char albeidoName[256];
+		char diffuseAlbedoName[256];
 		char roughnessName[256];
 		char neighboursName[256];
 		char patchBoundsName[256];
-			   		 
+
 		int outputSize = (int)ceil(sqrt(quadPatches.size()));
 		int resolution = 128;
 		Texture2D output_p;
 		output_p.Initialize(outputSize*resolution, outputSize*resolution, 128, nullptr);
 		Texture2D output_n;
 		output_n.Initialize(outputSize*resolution, outputSize*resolution, 64, nullptr);
-		
+
 		Texture2D output_t;
+		Texture2D output_r;
 		int textureResolutionScale = 4;
 		int textureResolution = resolution * textureResolutionScale;
-		if (albeido)
+		if (diffuseAlbedo)
 		{
 			output_t.Initialize(outputSize*textureResolution, outputSize*textureResolution, 32, nullptr);
+		}
+		if (roughness)
+		{
+			output_r.Initialize(outputSize*textureResolution, outputSize*textureResolution, 32, nullptr);
 		}
 
 		// Bounding box texture x: mins, maxs, y: patchid
@@ -729,7 +739,7 @@ public:
 			*output_bounds.GetPixelPtr<Vector4>(1, patchCount) = Vector4(bounds.max(), 1.0f);
 
 			MeshHelpers::BackupPositions(sub->mesh);
-			
+
 			std::cout << "Bake Patch Positions\n";
 			MeshHelpers::PositionsToBakeNormalized(sub->mesh, normalizationBox);
 			MeshHelpers::TexCoordsToPositions(sub->mesh);
@@ -739,23 +749,32 @@ public:
 			MeshHelpers::NormalsToBake(sub->mesh);
 			MeshHelpers::BakeMesh(sub->mesh, NULL, resolution, output_n, sub->gridX*resolution, sub->gridY*resolution);
 
-			if (albeido)
+			if (diffuseAlbedo)
 			{
 				std::cout << "Bake Patch Albedo\n";
-				MeshHelpers::BakeMesh(sub->mesh, albeido, textureResolution, output_t, sub->gridX * textureResolution, sub->gridY * textureResolution);
+				MeshHelpers::BakeMesh(sub->mesh, diffuseAlbedo, textureResolution, output_t, sub->gridX * textureResolution, sub->gridY * textureResolution);
+			}
+			if (roughness)
+			{
+				std::cout << "Bake Patch Roughness\n";
+				MeshHelpers::BakeMesh(sub->mesh, roughness, textureResolution, output_r, sub->gridX * textureResolution, sub->gridY * textureResolution);
 			}
 
 			MeshHelpers::RestorePositions(sub->mesh);
 
 			patchCount++;
 		}
-		
+
 		// Stitch up edges
 		StitchPatches<Vector4>(quadPatches, output_p, resolution);
 		StitchPatches<ShortPixel>(quadPatches, output_n, resolution);
-		if (albeido)
+		if (diffuseAlbedo)
 		{
 			StitchPatches<BytePixel>(quadPatches, output_t, textureResolution);
+		}
+		if (roughness)
+		{
+			StitchPatches<BytePixel>(quadPatches, output_r, textureResolution);
 		}
 
 		// Fill in neighbour data to ouptut
@@ -794,22 +813,36 @@ public:
 		sprintf(namebuff, "%s_out_n", namePrefix);
 		MipPatches<ShortPixel>(quadPatches, resolution, output_n, namebuff, ".png");
 
-		if (albeido)
+		if (diffuseAlbedo)
 		{
-			sprintf(albeidoName, "%s_out_t.png", namePrefix);
-			output_t.Save(albeidoName, false);
-			std::cout << "Saved bake: " << albeidoName << std::endl;
+			sprintf(diffuseAlbedoName, "%s_out_t.png", namePrefix);
+			output_t.Save(diffuseAlbedoName, false);
+			std::cout << "Saved bake: " << diffuseAlbedoName << std::endl;
 
 			sprintf(namebuff, "%s_out_t", namePrefix);
 			MipPatches<BytePixel>(quadPatches, textureResolution, output_t, namebuff, ".png");
 		}
 		else
 		{
-			sprintf(albeidoName, "");
+			sprintf(diffuseAlbedoName, "");
 		}
 
-		// TODO: Roughness
-		sprintf(roughnessName, "");
+		if (roughness)
+		{
+			sprintf(roughnessName, "%s_out_r.png", namePrefix);
+			output_r.Save(roughnessName, false);
+			std::cout << "Saved bake: " << roughnessName << std::endl;
+
+			sprintf(namebuff, "%s_out_r", namePrefix);
+			MipPatches<BytePixel>(quadPatches, textureResolution, output_r, namebuff, ".png");
+		}
+		else
+		{
+			sprintf(roughnessName, "");
+		}
+
+		//// TODO: Roughness
+		//sprintf(roughnessName, "");
 
 		sprintf(patchBoundsName, "%s_out_bounds.exr", namePrefix);
 		output_bounds.Save(patchBoundsName, false);
@@ -866,7 +899,7 @@ public:
 		sprintf(jsonBuff, jsonTemplate,
 			postionName,
 			normalName,
-			albeidoName,
+			diffuseAlbedoName,
 			roughnessName,
 			neighboursName,
 			patchBoundsName,

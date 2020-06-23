@@ -110,16 +110,27 @@ bool MeshProcessingViewer::load_mesh(const char* filename)
 	job.fileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_High.obj";
 	job.textureFileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_8K_Albedo.png";
 #endif
-#if 1
+#if 0
 	job.name = "stone_castle";
 	job.fileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_High.obj";
 	job.textureFileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_8K_Albedo.png";
 #endif
-#if 0
-	job.name = "sphere_low";
-	job.fileName = "H:\\Pmp\\pmp-library\\external\\pmp-data\\off\\sphere_low.off";
-	job.textureFileName = "";
+//#if 1
+//	job.name = "Rock_Cliffs_ubhubhyda";
+//	job.fileName = "C:/Data/Meshes/HQ/Rock_Cliffs_ubhubhyda_8K_3d_ms/ubhubhyda_High_WT.obj";
+//	job.diffuseAlbedo = "C:/Data/Meshes/HQ/Rock_Cliffs_ubhubhyda_8K_3d_ms/ubhubhyda_8K_Albedo.png";
+//#endif
+#if 1
+	job.name = "Wall_Cement_Brick";
+	job.fileName = "C:/Data/Meshes/HQ/Wall_Cement_Brick_taqgH_8K_3d_ms_H/taqgH_High.obj";
+	job.diffuseAlbedo = "C:/Data/Meshes/HQ/Wall_Cement_Brick_taqgH_8K_3d_ms_H/taqgH_8K_Albedo_sRGB.png";
+	job.roughnessMap = "C:/Data/Meshes/HQ/Wall_Cement_Brick_taqgH_8K_3d_ms_H/taqgH_8K_Roughness.png";
 #endif
+//#if 1
+//	job.name = "sphere_low";
+//	job.fileName = ".\\external\\pmp-data\\off\\sphere_low.off";
+//	job.textureFileName = "";
+//#endif
 
 	g.process(job);
 	//TestSplit(mesh_);
