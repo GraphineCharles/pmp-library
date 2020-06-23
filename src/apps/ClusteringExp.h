@@ -46,13 +46,20 @@ public:
 		if (job.cluster)
 		{
 			SurfaceMesh inputMesh;
-			inputMesh.read(job.fileName);
+			std::cout << "Parsing input mesh: " << job.fileName << "\n";
+			if (!inputMesh.read(job.fileName))
+			{
+				std::cout << "Failed reading: " << job.fileName << "\n";
+				return;
+			}
+
 			assert(inputMesh.n_faces());
 			assert(inputMesh.n_vertices());
 			SurfaceMesh simplified = inputMesh; //deep copy
 
 			std::vector<std::vector<Face>> patches;
 
+			std::cout << "Clustering\n";
 			if (job.method == ClusterMethod::Simplification)
 			{
 
