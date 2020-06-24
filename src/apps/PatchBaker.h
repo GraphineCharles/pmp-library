@@ -2,6 +2,8 @@
 #include <pmp/algorithms/DifferentialGeometry.h>
 #include <pmp/algorithms/SurfaceNormals.h>
 #include <unordered_set>
+#include <iostream>
+#include <filesystem>
 #include "ShortestPath.h"
 #include "SurfaceSimplificationWithAncestors.h"
 #include "MeshHelpers.h"
@@ -557,7 +559,7 @@ public:
 
 			char namebuff[512];
 			sprintf(namebuff, "%s_mip_%i_%s", namePrefix, mipCount, namePostfix);
-			output_mip->Save(namebuff, false);
+			output_mip->Save(namebuff, false, true);
 			std::cout << "Saved mip: " << namebuff << std::endl;
 
 			// Don't free the originally passed in image
@@ -727,16 +729,23 @@ public:
 		Texture2D output_neighbours;
 		output_neighbours.Initialize(2, outputSize*outputSize, 128, nullptr);
 
-		int patchCount = 0;
+		sprintf(namebuff, "%s_bounds.txt", namePrefix);
+		FILE *boundsTxt = fopen(namebuff, "w");
+
 		for (auto sub : quadPatches)
 		{
-			sub->gridX = patchCount % outputSize;
-			sub->gridY = patchCount / outputSize;
+			sub->gridX = sub->patchID % outputSize;
+			sub->gridY = sub->patchID / outputSize;
 
 			// Save bounding box
 			auto bounds = sub->mesh.bounds();
-			*output_bounds.GetPixelPtr<Vector4>(0,patchCount) = Vector4(bounds.min(), 1.0f);
-			*output_bounds.GetPixelPtr<Vector4>(1, patchCount) = Vector4(bounds.max(), 1.0f);
+			*output_bounds.GetPixelPtr<Vector4>(0, sub->patchID) = Vector4(bounds.min(), 1.0f);
+			*output_bounds.GetPixelPtr<Vector4>(1, sub->patchID) = Vector4(bounds.max(), 1.0f);
+
+			fprintf(boundsTxt, "min %f %f %f max %f %f %f\n",
+				bounds.min()[0], bounds.min()[1], bounds.min()[2],
+				bounds.max()[0], bounds.max()[1], bounds.max()[2]
+				);
 
 			MeshHelpers::BackupPositions(sub->mesh);
 
@@ -761,9 +770,9 @@ public:
 			}
 
 			MeshHelpers::RestorePositions(sub->mesh);
-
-			patchCount++;
 		}
+
+		fclose(boundsTxt);
 
 		// Stitch up edges
 		StitchPatches<Vector4>(quadPatches, output_p, resolution);
@@ -795,31 +804,31 @@ public:
 				edgeIndex++;
 			}
 
-			*output_neighbours.GetPixelPtr<Vector4>(0, patchCount) = neighbourIds;
-			*output_neighbours.GetPixelPtr<Vector4>(1, patchCount) = neighbourEdges;
+			*output_neighbours.GetPixelPtr<Vector4>(0, sub->patchID) = neighbourIds;
+			*output_neighbours.GetPixelPtr<Vector4>(1, sub->patchID) = neighbourEdges;
 		}
 
-		sprintf(postionName, "%s_out_p.exr", namePrefix);
-		output_p.Save(postionName, false);
+		sprintf(postionName, "%s_p.exr", namePrefix);
+		output_p.Save(postionName, false, true);
 		std::cout << "Saved bake: " << postionName << std::endl;
 
-		sprintf(namebuff, "%s_out_p", namePrefix);
+		sprintf(namebuff, "%s_p", namePrefix);
 		MipPatches<Vector4>(quadPatches, resolution, output_p, namebuff, ".exr");
 
-		sprintf(normalName, "%s_out_n.png", namePrefix);
-		output_n.Save(normalName, false);
+		sprintf(normalName, "%s_n.png", namePrefix);
+		output_n.Save(normalName, false, true);
 		std::cout << "Saved bake: " << normalName << std::endl;
 
-		sprintf(namebuff, "%s_out_n", namePrefix);
+		sprintf(namebuff, "%s_n", namePrefix);
 		MipPatches<ShortPixel>(quadPatches, resolution, output_n, namebuff, ".png");
 
 		if (diffuseAlbedo)
 		{
-			sprintf(diffuseAlbedoName, "%s_out_t.png", namePrefix);
-			output_t.Save(diffuseAlbedoName, false);
+			sprintf(diffuseAlbedoName, "%s_t.png", namePrefix);
+			output_t.Save(diffuseAlbedoName, false, true);
 			std::cout << "Saved bake: " << diffuseAlbedoName << std::endl;
 
-			sprintf(namebuff, "%s_out_t", namePrefix);
+			sprintf(namebuff, "%s_t", namePrefix);
 			MipPatches<BytePixel>(quadPatches, textureResolution, output_t, namebuff, ".png");
 		}
 		else
@@ -829,11 +838,11 @@ public:
 
 		if (roughness)
 		{
-			sprintf(roughnessName, "%s_out_r.png", namePrefix);
-			output_r.Save(roughnessName, false);
+			sprintf(roughnessName, "%s_r.png", namePrefix);
+			output_r.Save(roughnessName, false, true);
 			std::cout << "Saved bake: " << roughnessName << std::endl;
 
-			sprintf(namebuff, "%s_out_r", namePrefix);
+			sprintf(namebuff, "%sr", namePrefix);
 			MipPatches<BytePixel>(quadPatches, textureResolution, output_r, namebuff, ".png");
 		}
 		else
@@ -841,23 +850,15 @@ public:
 			sprintf(roughnessName, "");
 		}
 
-		//// TODO: Roughness
-		//sprintf(roughnessName, "");
-
-		sprintf(patchBoundsName, "%s_out_bounds.exr", namePrefix);
-		output_bounds.Save(patchBoundsName, false);
+		sprintf(patchBoundsName, "%s_bounds.exr", namePrefix);
+		output_bounds.Save(patchBoundsName, false, true);
 		std::cout << "Saved bake: " << patchBoundsName << std::endl;
 
-		sprintf(neighboursName, "%s_out_neighbours.exr", namePrefix);
-		output_neighbours.Save(neighboursName, false);
+		sprintf(neighboursName, "%s_neighbours.exr", namePrefix);
+		output_neighbours.Save(neighboursName, false, true);
 		std::cout << "Saved bake: " << neighboursName << std::endl;
 
-		sprintf(namebuff, "%s_out_bias_scale.txt", namePrefix);
-		FILE *f = fopen(namebuff, "w");
 		Point delta = normalizationBox.max() - normalizationBox.min();
-		fprintf(f, "%f %f %f %f %f %f", normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2], delta[0], delta[1], delta[2]);
-		fclose(f);
-		std::cout << "Saved scales: " << namebuff << std::endl;
 
 		char jsonBuff[4096];
 
@@ -897,12 +898,12 @@ public:
 		)";
 
 		sprintf(jsonBuff, jsonTemplate,
-			postionName,
-			normalName,
-			diffuseAlbedoName,
-			roughnessName,
-			neighboursName,
-			patchBoundsName,
+			std::filesystem::path(postionName).filename().string().c_str(),
+			std::filesystem::path(normalName).filename().string().c_str(),
+			std::filesystem::path(diffuseAlbedoName).filename().string().c_str(),
+			std::filesystem::path(roughnessName).filename().string().c_str(),
+			std::filesystem::path(neighboursName).filename().string().c_str(),
+			std::filesystem::path(patchBoundsName).filename().string().c_str(),
 			delta[0], delta[1], delta[2],
 			normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2],
 			quadPatches.size(),
@@ -914,7 +915,7 @@ public:
 		);
 
 		sprintf(namebuff, "%s.vmesh", namePrefix);
-		f = fopen(namebuff, "w");
+		FILE *f = fopen(namebuff, "w");
 		fprintf(f, "%s", jsonBuff);
 		fclose(f);
 		std::cout << "Saved json: " << namebuff << std::endl;
@@ -950,11 +951,11 @@ public:
 		}
 
 		sprintf(namebuff, "out_p.png");
-		output_p.Save(namebuff, false);
+		output_p.Save(namebuff, false, true);
 		std::cout << "Saved bake: " << namebuff << std::endl;
 
 		sprintf(namebuff, "out_n.png");
-		output_n.Save(namebuff, false);
+		output_n.Save(namebuff, false, true);
 		std::cout << "Saved bake: " << namebuff <<std::endl;
 	}
 };

@@ -3,6 +3,10 @@
 #include <pmp/algorithms/SurfaceNormals.h>
 #include <unordered_set>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <filesystem>
 #include "ShortestPath.h"
 #include "SurfaceSimplificationWithAncestors.h"
 #include "MeshHelpers.h"
@@ -32,6 +36,7 @@ public:
 		bool cluster = false;
 		bool bake = true;
 		ClusterMethod method = ClusterMethod::ElCheapo;
+		int numClusters = 12;
 	};
 
 	void process(JobInfo &job)
@@ -40,8 +45,14 @@ public:
 		bool bake = true;
 		ClusterMethod method = ClusterMethod::ElCheapo;*/
 
-		std::string boundsName = job.name + "_out.bounds";
-		std::string polyPatchPrefix = job.name + "_patch";
+		std::string tempDir = job.name + "/tmp";
+		std::string outDir = job.name;
+		std::filesystem::create_directories(tempDir);
+		std::filesystem::create_directories(outDir);
+		
+		std::string boundsName = tempDir + "/" + job.name + "_out.bounds";
+		std::string polyPatchPrefix = tempDir + "/" + job.name + "_patch";
+		std::string outputPrefix = outDir + "/" + job.name;
 
 		// Edge collapse
 		if (job.cluster)
@@ -104,7 +115,7 @@ public:
 			{
 
 				ElCheapoClust clust(inputMesh);
-				clust.process(12);
+				clust.process(job.numClusters);
 				patches = clust.clusters;
 			}
 
@@ -154,19 +165,19 @@ public:
 			bool hasRoughness	= job.roughnessMap.size() && roughnessTex.Load(job.roughnessMap.c_str());
 			if (hasDiffuse && hasRoughness)
 			{
-				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, &roughnessTex, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, &roughnessTex, bounds, outputPrefix.c_str());
 			}
 			else if (hasDiffuse)
 			{
-				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, nullptr, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, &diffuseAlbedoTex, nullptr, bounds, outputPrefix.c_str());
 			}
 			else if (hasRoughness)
 			{
-				PatchBaker::BakePatches(quadPatches, nullptr, &roughnessTex, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, nullptr, &roughnessTex, bounds, outputPrefix.c_str());
 			}
 			else
 			{
-				PatchBaker::BakePatches(quadPatches, nullptr, nullptr, bounds, job.name.c_str());
+				PatchBaker::BakePatches(quadPatches, nullptr, nullptr, bounds, outputPrefix.c_str());
 			}
 
 

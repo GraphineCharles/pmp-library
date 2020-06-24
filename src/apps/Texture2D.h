@@ -136,10 +136,15 @@ public:
 		return true;
 	}
 
-	bool Save(const std::string &filepath, bool isSRGB)
+	bool Save(const std::string &filepath, bool isSRGB, bool flipY)
 	{
 		// Crappy lodepng actually expects the input to be swapped from native order :-/
 		SwapPixels();
+
+		if (flipY)
+		{
+			VerticalFlipPixels();
+		}
 
 		unsigned int error;
 
@@ -171,6 +176,11 @@ public:
 					FreeEXRErrorMessage(errorMsg);
 				}
 			}
+		}
+
+		if (flipY)
+		{
+			VerticalFlipPixels();
 		}
 
 		SwapPixels();
