@@ -3,6 +3,14 @@ project(pmp-library)
 
 cmake_minimum_required(VERSION 3.0.2)
 
+if (MSVC_VERSION GREATER_EQUAL "1900")
+    include(CheckCXXCompilerFlag)
+    CHECK_CXX_COMPILER_FLAG("/std:c++latest" _cpp_latest_flag_supported)
+    if (_cpp_latest_flag_supported)
+        add_compile_options("/std:c++latest")
+    endif()
+endif()
+
 cmake_policy(SET CMP0048 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER "3.11.0")
 cmake_policy(SET CMP0072 OLD)
