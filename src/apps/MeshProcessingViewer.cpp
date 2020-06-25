@@ -98,29 +98,66 @@ bool MeshProcessingViewer::load_mesh(const char* filename)
 #if 0
 	job.name = "quixel";
 	job.fileName = "G:\\Downloads\\Stone_Carved_tjtpfb2fa_8K_3d_ms\\tjtpfb2fa_High.obj";
-	job.textureFileName = "G:\\Downloads\\Stone_Carved_tjtpfb2fa_8K_3d_ms\\tjtpfb2fa_8K_Albedo.png";
+	job.diffuseAlbedo = "G:\\Downloads\\Stone_Carved_tjtpfb2fa_8K_3d_ms\\tjtpfb2fa_8K_Albedo.png";
+#endif
+#if 0
+	job.name = "stone_granite";
+	job.fileName = "G:\\Downloads\\Stone_Granite_ubnnfacfa_8K_3d_ms\\ubnnfacfa_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\Stone_Granite_ubnnfacfa_8K_3d_ms\\ubnnfacfa_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Stone_Granite_ubnnfacfa_8K_3d_ms\\ubnnfacfa_8K_Roughness.png";
+	job.numClusters = 64;
+#endif
+#if 0
+	job.name = "castle_wall";
+	job.fileName = "G:\\Downloads\\Castle_Wall_sctv3_8K_3d_ms\\Aset_castle_wall_M_sctv3_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\Castle_Wall_sctv3_8K_3d_ms\\Aset_castle_wall_M_sctv3_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Castle_Wall_sctv3_8K_3d_ms\\Aset_castle_wall_M_sctv3_8K_Roughness.png";
+#endif
+#if 0
+	job.name = "stone_carved";
+	job.fileName = "G:\\Downloads\\Stone_Carved_ubrpbjcfa_8K_3d_ms\\ubrpbjcfa_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\Stone_Carved_ubrpbjcfa_8K_3d_ms\\ubrpbjcfa_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Stone_Carved_ubrpbjcfa_8K_3d_ms\\ubrpbjcfa_8K_Roughness.png";
+	job.numClusters = 32;
+#endif
+#if 0
+	job.name = "chapel_arch";
+	job.fileName = "G:\\Downloads\\Chapel_Arch_sboft_8K_3d_ms\\Aset_chapel_arch_L_sboft_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\Chapel_Arch_sboft_8K_3d_ms\\Aset_chapel_arch_L_sboft_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Chapel_Arch_sboft_8K_3d_ms\\Aset_chapel_arch_L_sboft_8K_Roughness.png";
+	job.numClusters = 16;
+#endif
+#if 0
+	job.name = "rock_cliffs";
+	job.fileName = "G:\\Downloads\\Rock_Cliffs_ubjuddqda_8K_3d_ms\\ubjuddqda_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\Rock_Cliffs_ubjuddqda_8K_3d_ms\\ubjuddqda_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Rock_Cliffs_ubjuddqda_8K_3d_ms\\ubjuddqda_8K_Roughness.png";
+	job.numClusters = 14;
 #endif
 #if 0
 	job.name = "moss_ground";
 	job.fileName = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_High.obj";
-	job.textureFileName = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_8K_Albedo.png";
+	job.diffuseAlbedo = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Moss_Ground_R_O_U_N_D_tkhhdhefa_8K_3d_ms\\tkhhdhefa_8K_Roughness.png";
 #endif
-#if 0
+#if 1
 	job.name = "steps";
 	job.fileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_High.obj";
-	job.textureFileName = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_8K_Albedo.png";
+	job.diffuseAlbedo = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Antique_Architecture_ud4mbgtfa_8K_3d_ms\\ud4mbgtfa_8K_Roughness.png";
 #endif
 #if 0
 	job.name = "stone_castle";
 	job.fileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_High.obj";
-	job.textureFileName = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_8K_Albedo.png";
+	job.diffuseAlbedo = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_8K_Albedo.png";
+	job.roughnessMap = "G:\\Downloads\\Stone_Castle_tixjegefa_8K_3d_ms\\tixjegefa_8K_Roughness.png";
 #endif
 //#if 1
 //	job.name = "Rock_Cliffs_ubhubhyda";
 //	job.fileName = "C:/Data/Meshes/HQ/Rock_Cliffs_ubhubhyda_8K_3d_ms/ubhubhyda_High_WT.obj";
 //	job.diffuseAlbedo = "C:/Data/Meshes/HQ/Rock_Cliffs_ubhubhyda_8K_3d_ms/ubhubhyda_8K_Albedo.png";
 //#endif
-#if 1
+#if 0
 	job.name = "Wall_Cement_Brick";
 	job.fileName = "C:/Data/Meshes/HQ/Wall_Cement_Brick_taqgH_8K_3d_ms_H/taqgH_High.obj";
 	job.diffuseAlbedo = "C:/Data/Meshes/HQ/Wall_Cement_Brick_taqgH_8K_3d_ms_H/taqgH_8K_Albedo_sRGB.png";
@@ -129,8 +166,14 @@ bool MeshProcessingViewer::load_mesh(const char* filename)
 //#if 1
 //	job.name = "sphere_low";
 //	job.fileName = ".\\external\\pmp-data\\off\\sphere_low.off";
-//	job.textureFileName = "";
+//	job.diffuseAlbedo = "";
 //#endif
+#if 0
+	job.name = "cliff";
+	job.fileName = "G:\\Downloads\\cliff\\Rock_Cliff_ufnqafgfa_High.obj";
+	job.diffuseAlbedo = "G:\\Downloads\\cliff\\Rock_Cliff_ufnqafgfa_8K_Albedo.png";
+	job.numClusters = 32;
+#endif
 
 	g.process(job);
 	//TestSplit(mesh_);
