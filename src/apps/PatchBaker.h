@@ -700,6 +700,7 @@ public:
 		char roughnessName[256];
 		char neighboursName[256];
 		char patchBoundsName[256];
+		char cornerNeighboursName[256];
 
 		int outputSize = (int)ceil(sqrt(quadPatches.size()));
 		int resolution = 128;
@@ -728,6 +729,11 @@ public:
 		// Neighbour texture: x : neighbour, edge, y : patchid
 		Texture2D output_neighbours;
 		output_neighbours.Initialize(2, outputSize*outputSize, 128, nullptr);
+
+		// Neighbour corners texture: x : patchid, y : n-th neighbour (0 = num neighbors)
+		static const int MAX_CORNER_NEIGHBOURS = 15;
+		Texture2D output_cneighbours;
+		output_cneighbours.Initialize(MAX_CORNER_NEIGHBOURS+1, outputSize*outputSize, 128, nullptr);
 
 		sprintf(namebuff, "%s_bounds.txt", namePrefix);
 		FILE *boundsTxt = fopen(namebuff, "w");
@@ -800,6 +806,22 @@ public:
 				{
 					neighbourIds[edgeIndex] = edge.neighbour;
 					neighbourEdges[edgeIndex] = edge.neighbourEdgeIndex;
+
+					VisitCorners(quadPatches, i, edgeIndex, [&](PatchQuadrangulator::QuadrangularPatch* visitPatch, int edge, int pixel)
+					{
+						if ( visitPatch == sub) return; //skip self
+						Vector4 &neighboursCounts = *output_cneighbours.GetPixelPtr<Vector4>(0, sub->patchID);
+						if (neighboursCounts[edgeIndex] < MAX_CORNER_NEIGHBOURS)
+						{
+							Vector4 &destNeighbours = *output_cneighbours.GetPixelPtr<Vector4>(neighboursCounts[edgeIndex] + 1, sub->patchID);
+							destNeighbours[edgeIndex] = visitPatch->patchID;
+							neighboursCounts[edgeIndex]++;
+						}
+						else
+						{
+							std::cout << "Corner has more than " << MAX_CORNER_NEIGHBOURS << "neighbours. Ignoring extra neighbours\n";
+						}
+					});
 				}
 				edgeIndex++;
 			}
@@ -858,6 +880,10 @@ public:
 		output_neighbours.Save(neighboursName, false, true);
 		std::cout << "Saved bake: " << neighboursName << std::endl;
 
+		sprintf(cornerNeighboursName, "%s_cneighbours.exr", namePrefix);
+		output_cneighbours.Save(cornerNeighboursName, false, true);
+		std::cout << "Saved bake: " << cornerNeighboursName << std::endl;
+
 		Point delta = normalizationBox.max() - normalizationBox.min();
 
 		char jsonBuff[4096];
@@ -870,6 +896,7 @@ public:
 				"roughness": "%s",
 				"neighbours": "%s",
 				"patchBounds": "%s",
+				"cornerNeighbours": "%s",
 				"scale": {
 					"x": %f,
 					"y": %f,
@@ -904,6 +931,7 @@ public:
 			std::filesystem::path(roughnessName).filename().string().c_str(),
 			std::filesystem::path(neighboursName).filename().string().c_str(),
 			std::filesystem::path(patchBoundsName).filename().string().c_str(),
+			std::filesystem::path(cornerNeighboursName).filename().string().c_str(),
 			delta[0], delta[1], delta[2],
 			normalizationBox.min()[0], normalizationBox.min()[1], normalizationBox.min()[2],
 			quadPatches.size(),
