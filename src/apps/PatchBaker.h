@@ -9,12 +9,22 @@
 #include "PatchQuadrangulator.h"
 #include "PatchHelpers.h"
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <algorithm>
+
+#define ALL_MAPS_SAME_SIZE 1
+
 class PatchBaker
 {
 public:
 
 	struct ShortPixel
 	{
+		ShortPixel() {
+			channels[0] = channels[1] = channels[2] = channels[3] = 0;
+		}
+
 		ShortPixel(int init) {
 			channels[0] = channels[1] = channels[2] = channels[3] = init;
 		}
@@ -37,11 +47,48 @@ public:
 			return ret;
 		}
 
+		ShortPixel operator+(ShortPixel& a) const
+		{
+			ShortPixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i] + channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFFFF - 1);
+			}
+			return r;
+		}
+
+		ShortPixel operator-(ShortPixel& a) const
+		{
+			ShortPixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i] - channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFFFF - 1);
+			}
+			return r;
+		}
+
+		ShortPixel operator*(ShortPixel& a) const
+		{
+			ShortPixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i]*channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFFFF - 1);
+			}
+			return r;
+		}
+
 		unsigned short channels[4];
 	};
 
 	struct BytePixel
 	{
+		BytePixel() {
+			channels[0] = channels[1] = channels[2] = channels[3] = 0;
+		}
+
 		BytePixel(int init) {
 			channels[0] = channels[1] = channels[2] = channels[3] = init;
 		}
@@ -62,6 +109,39 @@ public:
 				ret[i] = channels[i]*scalar;
 			}
 			return ret;
+		}
+
+		BytePixel operator+(BytePixel& a) const
+		{
+			BytePixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i] + channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFF - 1);
+			}
+			return r;
+		}
+
+		BytePixel operator-(BytePixel& a) const
+		{
+			BytePixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i] - channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFF - 1);
+			}
+			return r;
+		}
+
+		BytePixel operator*(BytePixel& a) const
+		{
+			BytePixel r(0);
+			for (int i = 0; i < 4; i++)
+			{
+				int l = (int)(a.channels[i]*channels[i]);
+				r.channels[i] = std::min(std::max(0, l), 0xFF - 1);
+			}
+			return r;
 		}
 
 		unsigned char channels[4];
@@ -569,6 +649,340 @@ public:
 		}
 	}
 
+	static std::pair<Eigen::Vector3f, Eigen::Vector3f> FitPlane3D(const std::vector<Eigen::Vector3f> & c)
+	{
+		// copy coordinates to  matrix in Eigen format
+		size_t num_atoms = c.size();
+		Eigen::Matrix<Eigen::Vector3f::Scalar, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_atoms);
+		for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = c[i];
+
+		// calculate centroid
+		Eigen::Vector3f centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
+
+		// subtract centroid
+		coord.row(0).array() -= centroid(0); coord.row(1).array() -= centroid(1); coord.row(2).array() -= centroid(2);
+
+		// we only need the left-singular matrix here
+		//  http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+		auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+		Eigen::Vector3f plane_normal = svd.matrixU().rightCols<1>();
+		return std::make_pair(centroid, plane_normal);
+	}
+
+	static
+	std::pair<Vector4, Vector4> GetPlane3D(Vector4 p00, Vector4 p01, Vector4 p11, Vector4 p10)
+	{
+		std::pair<Eigen::Vector3f, Eigen::Vector3f>
+			planeInfo = FitPlane3D(
+				{
+					Eigen::Vector3f(p00(0, 0), p00(1, 0), p00(2, 0)),
+					Eigen::Vector3f(p01(0, 0), p01(1, 0), p01(2, 0)),
+					Eigen::Vector3f(p11(0, 0), p11(1, 0), p11(2, 0)),
+					Eigen::Vector3f(p10(0, 0), p10(1, 0), p10(2, 0))
+				});
+
+		// first: centroid, second: normal
+		return
+			{
+				Vector4(planeInfo.first.x(), planeInfo.first.y(), planeInfo.first.z(), 1.0f),
+				Vector4(planeInfo.second.x(), planeInfo.second.y(), planeInfo.second.z(), 1.0f)
+			};
+	}
+
+	static
+	Vector4 GetHeights(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*> & quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		Texture2D& positions)
+	{
+		Vector4 p00, p01, p11, p10;
+		Gather<Vector4>(p00, p01, p11, p10, quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, positions);
+
+		auto planeInfo = GetPlane3D(p00, p01, p11, p10);
+
+		float d00 = abs(dot(p00, planeInfo.second));
+		float d01 = abs(dot(p00, planeInfo.second));
+		float d11 = abs(dot(p00, planeInfo.second));
+		float d10 = abs(dot(p00, planeInfo.second));
+
+		return Vector4(d00, d01, d11, d10);
+	}
+
+	template <class PixelType>
+	static PixelType Variance4(PixelType a, PixelType b, PixelType c, PixelType d)
+	{
+		PixelType mean = (a + b + c + d);
+
+		return PixelType(((a*a + b*b + c*c + d*d) - (mean*mean))*(1.0f/4.0f));
+	}
+
+
+	template <class PixelType>
+	static PixelType Variance4(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		Texture2D& image)
+	{
+		PixelType p00, p01, p11, p10;
+		Gather<PixelType>(p00, p01, p11, p10, quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, image);
+
+		return Variance4(p00, p01, p11, p10);
+	}
+
+	template <class PixelType>
+	static void Gather(
+		PixelType& p00,
+		PixelType& p01,
+		PixelType& p11,
+		PixelType& p10,
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		Texture2D& image)
+	{
+		p00 = SamplePatch<PixelType>(image, quadPatches, resolution, patchIndex, hix0, hiy0);
+		p01 = SamplePatch<PixelType>(image, quadPatches, resolution, patchIndex, hix0, hiy1);
+		p11 = SamplePatch<PixelType>(image, quadPatches, resolution, patchIndex, hix1, hiy1);
+		p10 = SamplePatch<PixelType>(image, quadPatches, resolution, patchIndex, hix1, hiy0);
+	}
+
+	template <class PixelType>
+	static PixelType GetSum(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		Texture2D& image)
+	{
+		PixelType p00, p01, p11, p10;
+		Gather<PixelType>(p00, p01, p11, p10, quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, image);
+
+		return p00 + p01 + p11 + p10;
+	}
+
+	template <class PixelType>
+	static PixelType Bilinear(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		float lerpx, float lerpy,
+		Texture2D& image)
+	{
+		PixelType p00, p01, p11, p10;
+		Gather<PixelType>(p00, p01, p11, p10, quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, image);
+
+		PixelType p0 = LerpPixel(p00, p10, lerpx);
+		PixelType p1 = LerpPixel(p01, p11, lerpx);
+
+		return LerpPixel(p0, p1, lerpy);
+	}
+
+	template <class PixelType, class PreProcess, class PostProcess>
+	static PixelType BilinearWithProcess(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		float hix0, float hiy0,
+		float hix1, float hiy1,
+		float lerpx, float lerpy,
+		Texture2D& image,
+		PreProcess preProcess,
+		PostProcess postProcess)
+	{
+		PixelType p00, p01, p11, p10;
+		Gather<PixelType>(p00, p01, p11, p10, quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, image);
+
+		PixelType p0 = LerpPixel(p00, p10, lerpx);
+		PixelType p1 = LerpPixel(p01, p11, lerpx);
+
+		return postProcess(LerpPixel(p0, p1, lerpy));
+	}
+
+	static void MipPatchAll(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*>& quadPatches,
+		int resolution,
+		int patchIndex,
+		Texture2D& positions,
+		Texture2D& normals,
+		Texture2D& albedo,
+		Texture2D& roughness,
+		Texture2D& positionsMip,
+		Texture2D& normalsMip,
+		Texture2D& albedoMip,
+		Texture2D& roughnessMip)
+	{
+		float mipResolution = resolution / 2;
+		float sampleScale = (float)(resolution - 1) / (float)(mipResolution - 1);
+
+		PatchQuadrangulator::QuadrangularPatch* patch = quadPatches[patchIndex];
+		for (int y = 0; y < mipResolution; y++)
+		{
+			for (int x = 0; x < mipResolution; x++)
+			{
+				float highx = x * sampleScale;
+				float highy = y * sampleScale;
+
+				int hix0 = (int)highx;
+				int hix1 = hix0 + 1;
+
+				int hiy0 = (int)highy;
+				int hiy1 = hiy0 + 1;
+
+				assert(hix0 >= 0 && hix0 < resolution);
+				assert(hiy0 >= 0 && hiy0 < resolution);
+				assert(hix1 >= 0 && hix1 <= resolution);
+				assert(hiy1 >= 0 && hiy1 <= resolution);
+
+				float lerpx = highx - hix0;
+				float lerpy = highy - hiy0;
+
+				Vector4 heights = GetHeights(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy0, positions);
+				float varH = std::clamp(Variance4(heights(0, 0), heights(1, 0), heights(2, 0), heights(3, 0)), 0.0f, 1.0f);
+				float varH2 = varH*varH;
+
+				// Fit vMF to NDF
+				ShortPixel nTotal = GetSum<ShortPixel>(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy1, normals);
+				Vector4 nTotalf = (nTotal*(0.25f/float(0xFFFF - 1)));
+
+				float roughnessOffset = varH2;
+				float fNorm = norm(nTotalf);
+				if (fNorm < 1.0f)
+				{
+					float kappa = (3.0f*fNorm - fNorm*fNorm*fNorm)/(1.0f - fNorm*fNorm);
+					roughnessOffset += 1.0f/kappa;
+				}
+
+				*positionsMip.GetPixelPtr<Vector4>(x + patch->gridX * mipResolution, y + patch->gridY * mipResolution) =
+					Bilinear<Vector4>(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy0, lerpx, lerpy, positions);
+
+				*normalsMip.GetPixelPtr<ShortPixel>(x + patch->gridX * mipResolution, y + patch->gridY * mipResolution) =
+					Bilinear<ShortPixel>(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy0, lerpx, lerpy, normals);
+
+				*albedoMip.GetPixelPtr<BytePixel>(x + patch->gridX * mipResolution, y + patch->gridY * mipResolution) =
+					Bilinear<BytePixel>(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy0, lerpx, lerpy, albedo);
+
+				*roughnessMip.GetPixelPtr<BytePixel>(x + patch->gridX * mipResolution, y + patch->gridY * mipResolution) =
+					BilinearWithProcess<BytePixel>(quadPatches, resolution, patchIndex, hix0, hiy0, hix1, hiy0, lerpx, lerpy, roughness,
+							[](BytePixel x)
+							{
+								Vector4 y = x*(1.0f/255.f);
+								for (int i = 0; i < 4; ++i)
+								{
+									y(i, 0) = sqrt(y(i, 0))*255.0f;
+								}
+								return BytePixel(y);
+							},
+							[roughnessOffset](BytePixel x)
+							{
+								Vector4 y = (x*(1.0f/255.0f) + Vector4(roughnessOffset, roughnessOffset, roughnessOffset, roughnessOffset));
+								Vector4 z(y(0,0)*y(0,0), y(1,0)*y(1,0), y(2,0)*y(2,0), y(3,0)*y(3,0));
+								return BytePixel(z*255.0f);
+							}
+						);
+			}
+		}
+	}
+
+	static void MipPatchesAll(
+		std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches,
+		int resolution,
+		Texture2D& positions,
+		Texture2D& normals,
+		Texture2D& albedo,
+		Texture2D& roughness,
+		const char *namePrefix)
+	{
+		// sprintf(namebuff, "%s_out_", namePrefix);
+
+		Texture2D* prevPosMip = &positions;
+		Texture2D* prevNormalMip = &normals;
+		Texture2D* prevAlbedoMip = &albedo;
+		Texture2D* prevRoughnessMip = &roughness;
+		for (int mipResolution = resolution / 2, mipCount = 1; mipResolution >= 4; mipResolution = mipResolution / 2, mipCount++)
+		{
+			int prevResolution = mipResolution * 2;
+
+			Texture2D outputPos_blur;
+			outputPos_blur.Initialize(prevPosMip->width, prevPosMip->height, prevPosMip->bpp, nullptr);
+			Texture2D outputNormal_blur;
+			outputNormal_blur.Initialize(prevNormalMip->width, prevNormalMip->height, prevNormalMip->bpp, nullptr);
+			Texture2D outputAlbedo_blur;
+			outputAlbedo_blur.Initialize(prevAlbedoMip->width, prevAlbedoMip->height, prevAlbedoMip->bpp, nullptr);
+			Texture2D outputRoughness_blur;
+			outputRoughness_blur.Initialize(prevRoughnessMip->width, prevRoughnessMip->height, prevRoughnessMip->bpp, nullptr);
+
+			for (int i = 0; i < quadPatches.size(); i++)
+			{
+				BlurPatch<Vector4>(quadPatches, prevResolution, i, *prevPosMip, outputPos_blur);
+				BlurPatch<ShortPixel>(quadPatches, prevResolution, i, *prevNormalMip, outputNormal_blur);
+				BlurPatch<BytePixel>(quadPatches, prevResolution, i, *prevAlbedoMip, outputAlbedo_blur);
+				BlurPatch<BytePixel>(quadPatches, prevResolution, i, *prevRoughnessMip, outputRoughness_blur);
+			}
+
+			Texture2D *outputPos_mip = new Texture2D();
+			outputPos_mip->Initialize(prevPosMip->width/2, prevPosMip->height/2, prevPosMip->bpp, nullptr);
+			Texture2D *outputNormal_mip = new Texture2D();
+			outputNormal_mip->Initialize(prevNormalMip->width/2, prevNormalMip->height/2, prevNormalMip->bpp, nullptr);
+			Texture2D *outputAlbedo_mip = new Texture2D();
+			outputAlbedo_mip->Initialize(prevAlbedoMip->width/2, prevAlbedoMip->height/2, prevAlbedoMip->bpp, nullptr);
+			Texture2D *outputRoughness_mip = new Texture2D();
+			outputRoughness_mip->Initialize(prevRoughnessMip->width/2, prevRoughnessMip->height/2, prevRoughnessMip->bpp, nullptr);
+
+			for (int i = 0; i < quadPatches.size(); i++)
+			{
+				MipPatchAll(quadPatches, prevResolution, i,
+					outputPos_blur, outputNormal_blur, outputAlbedo_blur, outputRoughness_blur,
+					*outputPos_mip, *outputNormal_mip, *outputAlbedo_mip, *outputRoughness_mip);
+			}
+
+			StitchPatches<Vector4>(quadPatches, *outputPos_mip, mipResolution);
+			StitchPatches<ShortPixel>(quadPatches, *outputNormal_mip, mipResolution);
+			StitchPatches<BytePixel>(quadPatches, *outputAlbedo_mip, mipResolution);
+			StitchPatches<BytePixel>(quadPatches, *outputRoughness_mip, mipResolution);
+
+			char namebuffPos[512];
+			char namebuffNor[512];
+			char namebuffAlb[512];
+			char namebuffRou[512];
+			sprintf(namebuffPos, "%s_p_all_mip_%i_%s", namePrefix, mipCount, ".exr");
+			sprintf(namebuffNor, "%s_n_all_mip_%i_%s", namePrefix, mipCount, ".png");
+			sprintf(namebuffAlb, "%s_t_all_mip_%i_%s", namePrefix, mipCount, ".png");
+			sprintf(namebuffRou, "%s_r_all_mip_%i_%s", namePrefix, mipCount, ".png");
+			outputPos_mip->Save(namebuffPos, false);
+			outputNormal_mip->Save(namebuffNor, false);
+			outputAlbedo_mip->Save(namebuffAlb, true);
+			outputRoughness_mip->Save(namebuffRou, false);
+			std::cout << "Saved mip: " << outputPos_mip << std::endl;
+			std::cout << "Saved mip: " << outputNormal_mip << std::endl;
+			std::cout << "Saved mip: " << outputAlbedo_mip << std::endl;
+			std::cout << "Saved mip: " << outputRoughness_mip << std::endl;
+
+			// Don't free the originally passed in image
+			if (mipCount != 1)
+			{
+				delete prevPosMip;
+				delete prevNormalMip;
+				delete prevAlbedoMip;
+				delete prevRoughnessMip;
+			}
+			prevPosMip = outputPos_mip;
+			prevNormalMip = outputNormal_mip;
+			prevAlbedoMip = outputAlbedo_mip;
+			prevRoughnessMip = outputRoughness_mip;
+		}
+	}
+
 	// Make clean patch id's starting from zero that can be used to directly index in the vector.
 	// also adjusts the neighbour pointers accordingly.
 	static void ReassignPatchIDs(std::vector<PatchQuadrangulator::QuadrangularPatch*> &quadPatches)
@@ -679,7 +1093,6 @@ public:
 				edgeIndex++;
 			}
 		}
-
 	}
 
 	static void BakePatches(
@@ -701,15 +1114,15 @@ public:
 
 		int outputSize = (int)ceil(sqrt(quadPatches.size()));
 		int resolution = 128;
-		Texture2D output_p;
-		output_p.Initialize(outputSize*resolution, outputSize*resolution, 128, nullptr);
-		Texture2D output_n;
-		output_n.Initialize(outputSize*resolution, outputSize*resolution, 64, nullptr);
 
 		Texture2D output_t;
 		Texture2D output_r;
 		int textureResolutionScale = 4;
-		int textureResolution = resolution * textureResolutionScale;
+#if ALL_MAPS_SAME_SIZE
+		int textureResolution = resolution;
+#else
+		int textureResolution = resolution*textureResolutionScale;
+#endif
 		if (diffuseAlbedo)
 		{
 			output_t.Initialize(outputSize*textureResolution, outputSize*textureResolution, 32, nullptr);
@@ -718,6 +1131,11 @@ public:
 		{
 			output_r.Initialize(outputSize*textureResolution, outputSize*textureResolution, 32, nullptr);
 		}
+
+		Texture2D output_p;
+		output_p.Initialize(outputSize*resolution, outputSize*resolution, 128, nullptr);
+		Texture2D output_n;
+		output_n.Initialize(outputSize*resolution, outputSize*resolution, 64, nullptr);
 
 		// Bounding box texture x: mins, maxs, y: patchid
 		Texture2D output_bounds;
@@ -841,8 +1259,11 @@ public:
 			sprintf(roughnessName, "");
 		}
 
-		//// TODO: Roughness
-		//sprintf(roughnessName, "");
+		if (diffuseAlbedo && roughnessName)
+		{
+			sprintf(namebuff, "%s_out_", namePrefix);
+			MipPatchesAll(quadPatches, textureResolution, output_p, output_n, output_t, output_r, namebuff);
+		}
 
 		sprintf(patchBoundsName, "%s_out_bounds.exr", namePrefix);
 		output_bounds.Save(patchBoundsName, false);
